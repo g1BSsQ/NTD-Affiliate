@@ -41,6 +41,9 @@ const TransactionRow = React.memo(({ item }: { item: Transaction }) => {
 const WalletScreen = () => {
   const { wallets, transactions, loading, fetchWallets, fetchTransactions } = useAppStore();
   const [withdrawAmt, setWithdrawAmt] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [bankAccount, setBankAccount] = useState('');
+  const [bankOwner, setBankOwner] = useState('');
   const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'ALL' | 'COMMISSION' | 'REWARD'>('ALL');
 
@@ -57,7 +60,16 @@ const WalletScreen = () => {
   const handleWithdraw = async () => {
     const amt = parseInt(withdrawAmt.replace(/\D/g, ''), 10);
     if (isNaN(amt) || amt < 100000) { Alert.alert('Lỗi', 'Số tiền rút tối thiểu là 100.000đ'); return; }
-    if (amt > commissionWallet) { Alert.alert('Lỗi', 'Số dư Ví Hoa Hồng không đủ'); return; }
+    if (amt > commissionWallet) {
+      Alert.alert('Lỗi', 'Số dư ví Hoa hồng không đủ để thực hiện giao dịch.');
+      return;
+    }
+    
+    if (!bankName.trim() || !bankAccount.trim() || !bankOwner.trim()) {
+      Alert.alert('Lỗi', 'Vui lòng cung cấp đầy đủ thông tin ngân hàng thụ hưởng.');
+      return;
+    }
+
     setWithdrawLoading(true);
 
     try {
@@ -68,12 +80,18 @@ const WalletScreen = () => {
         user_id: user.id,
         amount: amt,
         status: 'PENDING',
+        bank_name: bankName.trim(),
+        bank_account: bankAccount.trim(),
+        bank_owner: bankOwner.trim().toUpperCase()
       });
 
       if (error) {
         Alert.alert('Lỗi', error.message);
       } else {
         setWithdrawAmt('');
+        setBankName('');
+        setBankAccount('');
+        setBankOwner('');
         Alert.alert('Đã gửi yêu cầu', 'Lệnh rút tiền đang chờ Admin duyệt.');
       }
     } catch (err) {
@@ -119,9 +137,16 @@ const WalletScreen = () => {
         <Card style={styles.withdrawCard}>
           <Text style={styles.cardTitle}>Rút tiền</Text>
           <Text style={styles.withdrawNote}>Tối thiểu 100.000đ · Chờ Admin duyệt</Text>
+          
+          <View style={styles.bankFields}>
+            <TextInput style={styles.withdrawInput} value={bankName} onChangeText={setBankName} placeholder="Tên Ngân Hàng (VD: Vietcombank)" placeholderTextColor={Colors.text.tertiary} />
+            <TextInput style={styles.withdrawInput} value={bankAccount} onChangeText={setBankAccount} placeholder="Số tài khoản" keyboardType="numeric" placeholderTextColor={Colors.text.tertiary} />
+            <TextInput style={styles.withdrawInput} value={bankOwner} onChangeText={setBankOwner} placeholder="Tên chủ tài khoản (Không Dấu)" autoCapitalize="characters" placeholderTextColor={Colors.text.tertiary} />
+          </View>
+
           <View style={styles.withdrawRow}>
             <TextInput
-              style={styles.withdrawInput}
+              style={[styles.withdrawInput, { flex: 1, marginBottom: 0 }]}
               value={withdrawAmt}
               onChangeText={setWithdrawAmt}
               placeholder="Số tiền muốn rút"
@@ -189,8 +214,8 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: FontSize.md, fontWeight: '800', color: Colors.text.primary, marginBottom: Spacing.xs },
   withdrawNote: { fontSize: FontSize.xs, color: Colors.text.tertiary, marginBottom: Spacing.md },
   withdrawRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
+  bankFields: { marginBottom: Spacing.md, gap: Spacing.sm },
   withdrawInput: {
-    flex: 1,
     height: 48,
     borderWidth: 1.5,
     borderColor: Colors.border,
