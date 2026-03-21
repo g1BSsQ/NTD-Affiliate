@@ -44,15 +44,14 @@ export const UserStatusBadge: React.FC<{ status: UserStatus }> = ({ status }) =>
   return <Badge label={cfg.label} variant={cfg.variant} />;
 };
 
-// Convenience: status badge for OrderStatus
-export const OrderStatusBadge: React.FC<{ status: OrderStatus }> = ({ status }) => {
-  const map: Record<OrderStatus, { label: string; variant: BadgeVariant }> = {
+export const OrderStatusBadge: React.FC<{ status: OrderStatus | string }> = ({ status }) => {
+  const map: Record<string, { label: string; variant: BadgeVariant }> = {
     [OrderStatus.WAITING_PAYMENT]: { label: 'Chờ thanh toán', variant: 'warning' },
-    [OrderStatus.PENDING_ADMIN]: { label: 'Chờ xác nhận', variant: 'info' },
+    [OrderStatus.PENDING_ADMIN]: { label: 'Chờ thanh toán', variant: 'info' },
     [OrderStatus.COMPLETED]: { label: 'Hoàn thành', variant: 'success' },
     [OrderStatus.REJECTED]: { label: 'Từ chối', variant: 'danger' },
   };
-  const cfg = map[status];
+  const cfg = map[status as string] || { label: status || 'Unknown', variant: 'neutral' };
   return <Badge label={cfg.label} variant={cfg.variant} />;
 };
 
