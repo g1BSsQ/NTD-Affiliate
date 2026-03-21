@@ -81,57 +81,72 @@ export const useAppStore = create<AppState>((set, get) => ({
   loading: false,
 
   fetchProfile: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-    if (data) set({ profile: data });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      if (error) console.warn('fetchProfile error:', error.message);
+      if (data) set({ profile: data });
+    } catch (e) { console.warn('fetchProfile failed:', e); }
   },
 
   fetchWallets: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase
-      .from('wallets')
-      .select('*')
-      .eq('user_id', user.id);
-    if (data) set({ wallets: data });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('wallets')
+        .select('*')
+        .eq('user_id', user.id);
+      if (error) console.warn('fetchWallets error:', error.message);
+      if (data) set({ wallets: data });
+    } catch (e) { console.warn('fetchWallets failed:', e); }
   },
 
   fetchOrders: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-    if (data) set({ orders: data });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) console.warn('fetchOrders error:', error.message);
+      if (data) set({ orders: data });
+    } catch (e) { console.warn('fetchOrders failed:', e); }
   },
 
   fetchTransactions: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-    if (data) set({ transactions: data });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) console.warn('fetchTransactions error:', error.message);
+      if (data) set({ transactions: data });
+    } catch (e) { console.warn('fetchTransactions failed:', e); }
   },
 
   fetchNetworkNode: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase
-      .from('network_nodes')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
-    if (data) set({ networkNode: data });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('network_nodes')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+      if (error) console.warn('fetchNetworkNode error:', error.message);
+      if (data) set({ networkNode: data });
+    } catch (e) { console.warn('fetchNetworkNode failed:', e); }
   },
 
   fetchAll: async () => {
