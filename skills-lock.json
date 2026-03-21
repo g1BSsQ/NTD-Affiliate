@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "skills": {
+    "frontend-mobile-development-component-scaffold": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "computedHash": "321c5996ecd869b0f15cd03281a643d62257fe8c3788a5aef932b9812fd43db3"
+    },
+    "mobile-design": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "computedHash": "856ea34ed7f67bed22055b2f6a638b03e7cb10bd796da1b0973358da19e2e96b"
+    },
+    "mobile-security-coder": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "computedHash": "cc7ee6c4c9696371ce82c287e24a595987cce79c86fed883a65542b8e628d8ad"
+    },
+    "react-native-architecture": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "computedHash": "46a768dfdb1042177a5a80d20e08466c3ddb9bed01a9bb1f4043db3267ea5e05"
+    },
+    "vercel-react-native-skills": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "a804b4e848059822638c390359976f7021380bcefb1469d473aa4e9202c15ecb"
+    }
+  }
+}

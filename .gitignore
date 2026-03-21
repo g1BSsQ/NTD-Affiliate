@@ -73,3 +73,13 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Hidden files and folders
+.agents/
+.env*
+.*
+!.gitignore
+!.prettierrc.js
+!.eslintrc.js
+!.watchmanconfig
+!.babel.config.js
