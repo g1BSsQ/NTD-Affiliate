@@ -20,6 +20,8 @@ import { Colors } from '../../constants/colors';
 import { FontSize } from '../../constants/typography';
 import { Spacing, Radius } from '../../constants/spacing';
 import { formatVND } from '../../components/CurrencyText';
+import { supabase } from '../../lib/supabase';
+
 
 // --- Data ---
 const PACKAGES = [
@@ -73,15 +75,38 @@ const RegisterScreen = () => {
       return;
     }
     setLoading(true);
-    // TODO: call API submit
-    setTimeout(() => {
+
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password: password,
+        options: {
+          data: {
+            full_name: fullName,
+            phone: phone,
+            sponsor_code: sponsorCode,
+            package_id: selectedPkg?.id,
+            address: address,
+          }
+        }
+      });
+
+      if (signUpError) {
+        Alert.alert('Lỗi đăng ký', signUpError.message);
+      } else {
+        // Success
+        Alert.alert(
+          'Đăng ký thành công!',
+          'Tài khoản của bạn đã được khởi tạo. Vui lòng xác nhận email (nếu có) và chờ quản trị viên duyệt thông tin.',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+      }
+    } catch (err: any) {
+      Alert.alert('Lỗi', 'Đã có lỗi xảy ra trong quá trình đăng ký.');
+      console.error(err);
+    } finally {
       setLoading(false);
-      Alert.alert(
-        'Đăng ký thành công!',
-        'Tài khoản của bạn đã được gửi. Vui lòng chờ người bảo trợ xếp vào hệ thống.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
-    }, 1500);
+    }
   };
 
   const selectedPkgTotal = selectedPkg ? Math.floor(selectedPkg.boxes * selectedPkg.pricePerBox * 1.08) : 0;

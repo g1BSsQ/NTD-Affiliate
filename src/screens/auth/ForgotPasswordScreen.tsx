@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
 import { Card } from '../../components/Card';
@@ -29,16 +30,24 @@ const ForgotPasswordScreen = () => {
 
   const handleRequestOTP = async () => {
     if (!identifier.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập Email hoặc Số điện thoại.');
+      Alert.alert('Lỗi', 'Vui lòng nhập Email.');
       return;
     }
     setLoading(true);
-    // TODO: Call API to send OTP
-    setTimeout(() => {
+    
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(identifier.trim().toLowerCase());
+      if (error) {
+        Alert.alert('Lỗi', error.message);
+      } else {
+        setStep(2);
+        Alert.alert('Thành công', 'Link khôi phục mật khẩu đã được gửi đến email ' + identifier);
+      }
+    } catch (err: any) {
+      Alert.alert('Lỗi', 'Đã có lỗi xảy ra.');
+    } finally {
       setLoading(false);
-      setStep(2);
-      Alert.alert('Thành công', 'Mã OTP đã được gửi đến ' + identifier);
-    }, 1200);
+    }
   };
 
   const handleResetPassword = async () => {

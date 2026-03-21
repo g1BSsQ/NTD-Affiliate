@@ -18,6 +18,8 @@ import { FontSize } from '../../constants/typography';
 import { Spacing } from '../../constants/spacing';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { useAuth, MOCK_CREDENTIALS } from '../../navigation/AppNavigator';
+import { supabase } from '../../lib/supabase';
+
 
 type NavProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
@@ -37,15 +39,27 @@ const LoginScreen = () => {
     }
     setError('');
     setLoading(true);
-    // Mock authentication
-    setTimeout(() => {
-      if (email.trim().toLowerCase() === MOCK_CREDENTIALS.email && password === MOCK_CREDENTIALS.password) {
+
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password: password,
+      });
+
+      if (authError) {
+        setError(authError.message === 'Invalid login credentials' 
+          ? 'Email hoặc mật khẩu không đúng.\n\n📝 Tài khoản test: test@ntd.com / 123456'
+          : authError.message
+        );
+      } else if (data.session) {
         login();
-      } else {
-        setError('Email hoặc mật khẩu không đúng.\n\n📝 Tài khoản test: test@ntd.com / 123456');
       }
+    } catch (err: any) {
+      setError('Đã có lỗi xảy ra. Vui lòng thử lại sau.');
+      console.error(err);
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   return (
