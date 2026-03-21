@@ -92,7 +92,10 @@ const LoginScreen = () => {
               onRightIconPress={() => setShowPass(!showPass)}
             />
 
-            <Pressable style={styles.forgotRow}>
+            <Pressable 
+              style={styles.forgotRow} 
+              onPress={() => navigation.navigate('ForgotPassword')}
+            >
               <Text style={styles.forgotText}>Quên mật khẩu?</Text>
             </Pressable>
 
