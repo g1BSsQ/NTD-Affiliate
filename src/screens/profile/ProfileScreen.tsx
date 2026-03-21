@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   Pressable,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '../../components/Card';
@@ -15,22 +16,9 @@ import { useAuth } from '../../navigation/AppNavigator';
 import { Colors } from '../../constants/colors';
 import { FontSize } from '../../constants/typography';
 import { Spacing, Radius } from '../../constants/spacing';
-import { UserStatus, UserRank, UserRankLabel } from '../../constants/enums';
-
-const mockUser = {
-  fullName: 'Nguyễn Văn A',
-  username: 'nguyenvana',
-  email: 'nguyenvana@email.com',
-  phone: '0901234567',
-  status: UserStatus.ACTIVE,
-  rank: UserRank.CTV_NANG_CAO,
-  referralCode: 'nguyenvana',
-  sponsorCode: 'tranthiB',
-  totalSales: 63000000,
-  thisMonthSales: 15000000,
-  commissionWallet: 4750000,
-  rewardWallet: 1500000,
-};
+import { UserRankLabel } from '../../constants/enums';
+import { useAppStore } from '../../store/useAppStore';
+import { supabase } from '../../lib/supabase';
 
 // Progress milestones
 const MILESTONES = [
@@ -48,8 +36,38 @@ const InfoRow = ({ label, value, accent }: { label: string; value: string; accen
 
 const ProfileScreen = () => {
   const { logout } = useAuth();
-  const nextMilestone = MILESTONES.find(m => mockUser.totalSales < m.target) ?? MILESTONES[MILESTONES.length - 1];
-  const progress = Math.min(1, mockUser.totalSales / nextMilestone.target);
+  const { profile, wallets, networkNode, orders, loading, fetchAll } = useAppStore();
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
+
+  if (loading || !profile) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Đang tải hồ sơ...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const totalSales = networkNode?.total_sales ?? 0;
+  const rankKey = (networkNode?.rank ?? 'CTV') as keyof typeof UserRankLabel;
+  const rewardWallet = wallets.find(w => w.type === 'REWARD')?.balance ?? 0;
+  const commissionWallet = wallets.find(w => w.type === 'COMMISSION')?.balance ?? 0;
+  const thisMonthSales = orders
+    .filter(o => o.status === 'COMPLETED' && new Date(o.created_at).getMonth() === new Date().getMonth())
+    .reduce((sum, o) => sum + o.total_price, 0);
+
+  const nextMilestone = MILESTONES.find(m => totalSales < m.target) ?? MILESTONES[MILESTONES.length - 1];
+  const progress = Math.min(1, totalSales / nextMilestone.target);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    logout();
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -57,11 +75,11 @@ const ProfileScreen = () => {
         {/* Avatar / header */}
         <View style={styles.profileHeader}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{mockUser.fullName.charAt(0).toUpperCase()}</Text>
+            <Text style={styles.avatarText}>{(profile.full_name ?? 'U').charAt(0).toUpperCase()}</Text>
           </View>
-          <Text style={styles.name}>{mockUser.fullName}</Text>
-          <Text style={styles.rank}>{UserRankLabel[mockUser.rank]}</Text>
-          <UserStatusBadge status={mockUser.status} />
+          <Text style={styles.name}>{profile.full_name}</Text>
+          <Text style={styles.rank}>{UserRankLabel[rankKey] ?? rankKey}</Text>
+          <UserStatusBadge status={profile.status as any} />
         </View>
 
         {/* Referral code */}
@@ -69,9 +87,9 @@ const ProfileScreen = () => {
           <Text style={styles.referralTitle}>🎯 Mã giới thiệu của bạn</Text>
           <Pressable
             style={styles.referralCodeBox}
-            onPress={() => Alert.alert('Sao chép!', `Mã: ${mockUser.referralCode}`)}
+            onPress={() => Alert.alert('Sao chép!', `Mã: ${profile.full_name}`)}
           >
-            <Text style={styles.referralCode}>{mockUser.referralCode.toUpperCase()}</Text>
+            <Text style={styles.referralCode}>{(profile.full_name ?? '').toUpperCase()}</Text>
             <Text style={styles.copyHint}>Nhấn để sao chép</Text>
           </Pressable>
         </Card>
@@ -86,7 +104,7 @@ const ProfileScreen = () => {
             <View style={[styles.progressFill, { width: `${Math.floor(progress * 100)}%` }]} />
           </View>
           <View style={styles.progressDetails}>
-            <Text style={styles.progressDetail}>DS tích lũy: {formatVND(mockUser.totalSales)} / {formatVND(nextMilestone.target)}</Text>
+            <Text style={styles.progressDetail}>DS tích lũy: {formatVND(totalSales)} / {formatVND(nextMilestone.target)}</Text>
             <Text style={styles.progressDetail}>Ekip cần: {nextMilestone.ekip} user trực hệ</Text>
           </View>
         </Card>
@@ -94,11 +112,10 @@ const ProfileScreen = () => {
         {/* Account info */}
         <Card>
           <Text style={styles.cardTitle}>Thông tin tài khoản</Text>
-          <InfoRow label="Họ tên" value={mockUser.fullName} />
-          <InfoRow label="Username" value={'@' + mockUser.username} />
-          <InfoRow label="Email" value={mockUser.email} />
-          <InfoRow label="Điện thoại" value={mockUser.phone} />
-          <InfoRow label="Người bảo trợ" value={mockUser.sponsorCode} accent />
+          <InfoRow label="Họ tên" value={profile.full_name ?? '—'} />
+          <InfoRow label="Điện thoại" value={profile.phone ?? '—'} />
+          <InfoRow label="Người bảo trợ" value={profile.sponsor_code ?? '—'} accent />
+          <InfoRow label="Trạng thái" value={profile.status} />
           <Pressable
             style={styles.editBtn}
             onPress={() => Alert.alert('Chỉnh sửa', 'Yêu cầu chỉnh sửa thông tin sẽ được gửi lên Admin để xét duyệt.')}
@@ -110,13 +127,13 @@ const ProfileScreen = () => {
         {/* Wallet summary */}
         <Card style={styles.walletSummary}>
           <Text style={styles.cardTitle}>Tóm tắt tài chính tháng này</Text>
-          <InfoRow label="DS tháng hiện tại" value={formatVND(mockUser.thisMonthSales)} />
-          <InfoRow label="Ví Điểm Thưởng" value={formatVND(mockUser.rewardWallet)} />
-          <InfoRow label="Ví Hoa Hồng" value={formatVND(mockUser.commissionWallet)} />
+          <InfoRow label="DS tháng hiện tại" value={formatVND(thisMonthSales)} />
+          <InfoRow label="Ví Điểm Thưởng" value={formatVND(rewardWallet)} />
+          <InfoRow label="Ví Hoa Hồng" value={formatVND(commissionWallet)} />
         </Card>
 
         {/* Logout */}
-        <Pressable style={styles.logoutBtn} onPress={() => Alert.alert('Đăng xuất', 'Bạn có muốn đăng xuất không?', [{ text: 'Hủy' }, { text: 'Đăng xuất', style: 'destructive', onPress: logout }])}>
+        <Pressable style={styles.logoutBtn} onPress={() => Alert.alert('Đăng xuất', 'Bạn có muốn đăng xuất không?', [{ text: 'Hủy' }, { text: 'Đăng xuất', style: 'destructive', onPress: handleLogout }])}>
           <Text style={styles.logoutText}>Đăng xuất</Text>
         </Pressable>
       </ScrollView>
@@ -127,6 +144,8 @@ const ProfileScreen = () => {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
   container: { padding: Spacing.lg, paddingBottom: Spacing.xxxl },
+  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
+  loadingText: { fontSize: FontSize.sm, color: Colors.text.secondary },
   profileHeader: { alignItems: 'center', marginBottom: Spacing.xl, paddingVertical: Spacing.xl },
   avatar: {
     width: 88,

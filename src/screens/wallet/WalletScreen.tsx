@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Pressable,
   Alert,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '../../components/Card';
@@ -15,23 +16,16 @@ import { CurrencyText } from '../../components/CurrencyText';
 import { Colors } from '../../constants/colors';
 import { FontSize } from '../../constants/typography';
 import { Spacing, Radius } from '../../constants/spacing';
-import type { WalletTransaction } from '../../types';
-import { WithdrawStatus } from '../../constants/enums';
-
-const mockTransactions: WalletTransaction[] = [
-  { id: '1', type: 'COMMISSION', amount: 1500000, description: 'Hoa hồng F1 - Trần Thị Bình', walletType: 'COMMISSION', status: 'COMPLETED', createdAt: '2026-03-20T09:00:00Z' },
-  { id: '2', type: 'COMMISSION', amount: 900000, description: 'Hoa hồng Nhị phân tháng 3', walletType: 'COMMISSION', status: 'COMPLETED', createdAt: '2026-03-18T14:00:00Z' },
-  { id: '3', type: 'WITHDRAW', amount: -2000000, description: 'Rút tiền về VCB ***1234', walletType: 'COMMISSION', status: WithdrawStatus.APPROVED, createdAt: '2026-03-15T11:00:00Z' },
-  { id: '4', type: 'REWARD', amount: 500000, description: 'Thưởng điểm đơn hàng tháng 3', walletType: 'REWARD', status: 'COMPLETED', createdAt: '2026-03-12T08:00:00Z' },
-];
+import { useAppStore, type Transaction } from '../../store/useAppStore';
+import { supabase } from '../../lib/supabase';
 
 const txTypeIcon: Record<string, string> = {
   COMMISSION: '💸', REWARD: '🎁', WITHDRAW: '🏦', PURCHASE: '🛍️',
 };
 
-const TransactionRow = React.memo(({ item }: { item: WalletTransaction }) => {
+const TransactionRow = React.memo(({ item }: { item: Transaction }) => {
   const isPositive = item.amount > 0;
-  const dateStr = new Date(item.createdAt).toLocaleDateString('vi-VN');
+  const dateStr = new Date(item.created_at).toLocaleDateString('vi-VN');
   return (
     <View style={styles.txRow}>
       <View style={styles.txIcon}><Text style={{ fontSize: 20 }}>{txTypeIcon[item.type]}</Text></View>
@@ -45,26 +39,59 @@ const TransactionRow = React.memo(({ item }: { item: WalletTransaction }) => {
 });
 
 const WalletScreen = () => {
+  const { wallets, transactions, loading, fetchWallets, fetchTransactions } = useAppStore();
   const [withdrawAmt, setWithdrawAmt] = useState('');
   const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'ALL' | 'COMMISSION' | 'REWARD'>('ALL');
 
-  const rewardWallet = 1500000;
-  const commissionWallet = 4750000;
+  useEffect(() => {
+    fetchWallets();
+    fetchTransactions();
+  }, [fetchWallets, fetchTransactions]);
 
-  const filtered = mockTransactions.filter(t => activeTab === 'ALL' || t.walletType === activeTab);
+  const rewardWallet = wallets.find(w => w.type === 'REWARD')?.balance ?? 0;
+  const commissionWallet = wallets.find(w => w.type === 'COMMISSION')?.balance ?? 0;
 
-  const handleWithdraw = () => {
+  const filtered = transactions.filter(t => activeTab === 'ALL' || t.wallet_type === activeTab);
+
+  const handleWithdraw = async () => {
     const amt = parseInt(withdrawAmt.replace(/\D/g, ''), 10);
     if (isNaN(amt) || amt < 100000) { Alert.alert('Lỗi', 'Số tiền rút tối thiểu là 100.000đ'); return; }
     if (amt > commissionWallet) { Alert.alert('Lỗi', 'Số dư Ví Hoa Hồng không đủ'); return; }
     setWithdrawLoading(true);
-    setTimeout(() => {
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase.from('withdraw_requests').insert({
+        user_id: user.id,
+        amount: amt,
+        status: 'PENDING',
+      });
+
+      if (error) {
+        Alert.alert('Lỗi', error.message);
+      } else {
+        setWithdrawAmt('');
+        Alert.alert('Đã gửi yêu cầu', 'Lệnh rút tiền đang chờ Admin duyệt.');
+      }
+    } catch (err) {
+      Alert.alert('Lỗi', 'Đã có lỗi xảy ra.');
+    } finally {
       setWithdrawLoading(false);
-      setWithdrawAmt('');
-      Alert.alert('Đã gửi yêu cầu', 'Lệnh rút tiền đang chờ Admin duyệt.');
-    }, 1200);
+    }
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -125,12 +152,18 @@ const WalletScreen = () => {
             ))}
           </View>
           <Card noPadding>
-            {filtered.map((tx, idx) => (
-              <React.Fragment key={tx.id}>
-                <TransactionRow item={tx} />
-                {idx < filtered.length - 1 && <View style={styles.divider} />}
-              </React.Fragment>
-            ))}
+            {filtered.length === 0 ? (
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyText}>Chưa có giao dịch nào</Text>
+              </View>
+            ) : (
+              filtered.map((tx, idx) => (
+                <React.Fragment key={tx.id}>
+                  <TransactionRow item={tx} />
+                  {idx < filtered.length - 1 && <View style={styles.divider} />}
+                </React.Fragment>
+              ))
+            )}
           </Card>
         </View>
       </ScrollView>
@@ -141,6 +174,7 @@ const WalletScreen = () => {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
   container: { padding: Spacing.lg, paddingBottom: Spacing.xxxl },
+  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   header: { marginBottom: Spacing.xl },
   title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text.primary },
   subtitle: { fontSize: FontSize.sm, color: Colors.text.secondary, marginTop: Spacing.xs },
@@ -179,6 +213,8 @@ const styles = StyleSheet.create({
   txDesc: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text.primary, marginBottom: 2 },
   txDate: { fontSize: FontSize.xs, color: Colors.text.tertiary },
   divider: { height: 1, backgroundColor: Colors.border, marginHorizontal: Spacing.lg },
+  emptyBox: { padding: Spacing.xl, alignItems: 'center' },
+  emptyText: { fontSize: FontSize.sm, color: Colors.text.tertiary },
 });
 
 export default WalletScreen;
