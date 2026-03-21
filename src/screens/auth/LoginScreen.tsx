@@ -113,7 +113,20 @@ const LoginScreen = () => {
 
             {/* Mock credentials hint */}
             <View style={styles.mockHint}>
-              <Text style={styles.mockHintTitle}>📝 Tài khoản test:</Text>
+              <View style={styles.mockHintHeader}>
+                <Text style={styles.mockHintTitle}>📝 Tài khoản test:</Text>
+                <Pressable 
+                  style={styles.quickLoginBtn} 
+                  onPress={() => {
+                    setEmail(MOCK_CREDENTIALS.email);
+                    setPassword(MOCK_CREDENTIALS.password);
+                    // Use a small delay to show the fields being filled
+                    setTimeout(handleLogin, 100);
+                  }}
+                >
+                  <Text style={styles.quickLoginText}>Dùng ngay ⚡</Text>
+                </Pressable>
+              </View>
               <Text style={styles.mockHintText}>Email: test@ntd.com</Text>
               <Text style={styles.mockHintText}>Mật khẩu: 123456</Text>
             </View>
@@ -168,9 +181,12 @@ const styles = StyleSheet.create({
   divider: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.lg },
   dividerLine: { flex: 1, height: 1, backgroundColor: Colors.border },
   dividerText: { marginHorizontal: Spacing.sm, fontSize: FontSize.sm, color: Colors.text.tertiary },
-  mockHint: { backgroundColor: Colors.surfaceElevated, borderRadius: 8, padding: Spacing.sm, marginBottom: Spacing.lg },
-  mockHintTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary, marginBottom: 4 },
-  mockHintText: { fontSize: FontSize.xs, color: Colors.text.secondary, fontFamily: 'monospace' },
+  mockHint: { backgroundColor: Colors.surfaceElevated, borderRadius: 12, padding: Spacing.md, marginBottom: Spacing.lg, borderWidth: 1, borderColor: Colors.border },
+  mockHintHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  mockHintTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
+  quickLoginBtn: { backgroundColor: Colors.primary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  quickLoginText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  mockHintText: { fontSize: FontSize.xs, color: Colors.text.secondary, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
   footer: { textAlign: 'center', fontSize: FontSize.xs, color: Colors.text.tertiary, marginTop: Spacing.xxl },
 });
 

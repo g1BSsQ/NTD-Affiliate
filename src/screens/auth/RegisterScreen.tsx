@@ -76,7 +76,11 @@ const RegisterScreen = () => {
     // TODO: call API submit
     setTimeout(() => {
       setLoading(false);
-      Alert.alert('Đăng ký thành công!', 'Tài khoản của bạn đang chờ người bảo trợ xếp vào hệ thống.');
+      Alert.alert(
+        'Đăng ký thành công!',
+        'Tài khoản của bạn đã được gửi. Vui lòng chờ người bảo trợ xếp vào hệ thống.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
     }, 1500);
   };
 
