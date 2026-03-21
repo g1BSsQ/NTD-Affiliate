@@ -37,6 +37,13 @@ const LoginScreen = () => {
       setError('Vui lòng điền đầy đủ thông tin.');
       return;
     }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim().toLowerCase())) {
+      setError('Định dạng email không hợp lệ.');
+      return;
+    }
+
     setError('');
     setLoading(true);
 

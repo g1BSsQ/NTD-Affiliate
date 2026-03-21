@@ -58,7 +58,72 @@ const RegisterScreen = () => {
 
   const [loading, setLoading] = useState(false);
 
-  const nextStep = () => setStep(s => Math.min(s + 1, TOTAL_STEPS));
+  const nextStep = async () => {
+    if (step === 1) {
+      if (!fullName.trim() || !email.trim() || !phone.trim() || !password.trim() || !sponsorCode.trim()) {
+        Alert.alert('Thiếu thông tin', 'Vui lòng điền đầy đủ các trường bắt buộc.');
+        return;
+      }
+      
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim().toLowerCase())) {
+        Alert.alert('Lỗi định dạng', 'Email không hợp lệ.');
+        return;
+      }
+
+      const phoneRegex = /^(0|84|\\+84)[3|5|7|8|9][0-9]{8}$/;
+      if (!phoneRegex.test(phone.trim())) {
+        Alert.alert('Lỗi định dạng', 'Số điện thoại không hợp lệ (cần 10 số, mạng VN).');
+        return;
+      }
+
+      if (password.length < 6) {
+        Alert.alert('Lỗi bảo mật', 'Mật khẩu phải chứa ít nhất 6 ký tự.');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        // Verify if sponsor code exists
+        if (sponsorCode.trim().toLowerCase() !== 'admin') {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('sponsor_code', sponsorCode.trim())
+            .single();
+
+          if (error || !data) {
+            Alert.alert('Lỗi Bảo trợ', 'Mã người giới thiệu không tồn tại trong hệ thống.');
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (err) {
+        Alert.alert('Lỗi mạng', 'Không thể xác minh mã bảo trợ.');
+        setLoading(false);
+        return;
+      }
+      setLoading(false);
+    }
+    
+    if (step === 2) {
+      if (!selectedPkg) {
+        Alert.alert('Chưa chọn gói', 'Vui lòng chọn 1 gói khởi đầu.');
+        return;
+      }
+      if (!pickupAtWarehouse && !address.trim()) {
+        Alert.alert('Thiếu địa chỉ', 'Vui lòng nhập địa chỉ nhận hàng.');
+        return;
+      }
+    }
+    if (step === 3) {
+      if (!receiptUri) {
+        Alert.alert('Thiếu biên lai', 'Vui lòng tải lên ảnh biên lai chuyển khoản.');
+        return;
+      }
+    }
+    setStep(s => Math.min(s + 1, TOTAL_STEPS));
+  };
   const prevStep = () => {
     if (step === 1) { navigation.goBack(); return; }
     setStep(s => Math.max(s - 1, 1));
@@ -69,14 +134,54 @@ const RegisterScreen = () => {
     if (result.assets?.[0]?.uri) setter(result.assets[0].uri);
   };
 
+  const uploadImage = async (uri: string, bucket: string, prefix: string) => {
+    try {
+      const ext = uri.substring(uri.lastIndexOf('.') + 1) || 'jpg';
+      const safeExt = ext.toLowerCase() === 'jpg' ? 'jpeg' : ext.toLowerCase();
+      const fileName = `${prefix}_${Date.now()}.${safeExt}`;
+      const filePath = `${email.trim().toLowerCase()}/${fileName}`;
+
+      const formData = new FormData();
+      formData.append('file', {
+        uri: Platform.OS === 'ios' ? uri.replace('file://', '') : uri,
+        type: `image/${safeExt}`,
+        name: fileName,
+      } as any);
+
+      // In React Native, FormData is supported directly by Supabase Storage
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, formData);
+
+      if (error) throw error;
+
+      const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+      return publicUrlData.publicUrl;
+    } catch (e: any) {
+      console.error('Image upload error:', e);
+      throw new Error(e.message || 'Lỗi mạng khi tải ảnh lên.');
+    }
+  };
+
   const handleSubmit = async () => {
     if (!cccdFrontUri || !cccdBackUri) {
       Alert.alert('Thiếu ảnh', 'Vui lòng upload đủ 2 mặt CCCD.');
       return;
     }
+    if (!receiptUri || !selectedPkg) {
+      Alert.alert('Lỗi', 'Thiếu thông tin gói hoặc biên lai thanh toán.');
+      return;
+    }
+    
     setLoading(true);
 
     try {
+      // 1. Upload Images
+      const uploadedReceipt = await uploadImage(receiptUri, 'receipts', 'receipt');
+      const uploadedCccdFront = await uploadImage(cccdFrontUri, 'cccds', 'cccd_front');
+      const uploadedCccdBack = await uploadImage(cccdBackUri, 'cccds', 'cccd_back');
+
+      // 2. Sign Up
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password: password,
@@ -85,8 +190,11 @@ const RegisterScreen = () => {
             full_name: fullName,
             phone: phone,
             sponsor_code: sponsorCode,
-            package_id: selectedPkg?.id,
+            package_id: selectedPkg.id,
             address: address,
+            receipt_url: uploadedReceipt,
+            cccd_front_url: uploadedCccdFront,
+            cccd_back_url: uploadedCccdBack,
           }
         }
       });
@@ -94,15 +202,14 @@ const RegisterScreen = () => {
       if (signUpError) {
         Alert.alert('Lỗi đăng ký', signUpError.message);
       } else {
-        // Success
         Alert.alert(
           'Đăng ký thành công!',
-          'Tài khoản của bạn đã được khởi tạo. Vui lòng xác nhận email (nếu có) và chờ quản trị viên duyệt thông tin.',
+          'Tài khoản của bạn đã được khởi tạo. Vui lòng chờ quản trị viên duyệt thông tin.',
           [{ text: 'OK', onPress: () => navigation.goBack() }]
         );
       }
     } catch (err: any) {
-      Alert.alert('Lỗi', 'Đã có lỗi xảy ra trong quá trình đăng ký.');
+      Alert.alert('Lỗi', err.message || 'Đã có lỗi xảy ra trong quá trình đăng ký.');
       console.error(err);
     } finally {
       setLoading(false);
