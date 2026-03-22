@@ -9,6 +9,7 @@ import {
   Image,
   TextInput,
   RefreshControl,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -48,6 +49,9 @@ const ShopScreen = () => {
   const [usePoints, setUsePoints] = useState(false);
   const [pickupAtWarehouse, setPickupAtWarehouse] = useState(true);
   const [address, setAddress] = useState('');
+  const [shippingName, setShippingName] = useState('');
+  const [shippingPhone, setShippingPhone] = useState('');
+  const [isAddressModalVisible, setIsAddressModalVisible] = useState(false);
   const [receipt, setReceipt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -92,7 +96,9 @@ const ShopScreen = () => {
         receipt || '',
         pointsToUse,
         pickupAtWarehouse ? 'Tại kho đại lý' : address,
-        pickupAtWarehouse ? 'PICKUP' : 'SHIPPING'
+        pickupAtWarehouse ? 'PICKUP' : 'SHIPPING',
+        shippingName || profile?.full_name || '',
+        shippingPhone || profile?.phone || ''
       );
       Alert.alert('Thành công!', 'Đơn hàng của bạn đã được gửi và đang chờ xác nhận.');
       setStep('shop');
@@ -134,39 +140,48 @@ const ShopScreen = () => {
             </View>
           </Card>
 
-          {/* Delivery Method */}
-          <Card style={styles.summaryCard}>
+          {/* Delivery Method Card */}
+          <Card style={styles.deliveryCard}>
             <Text style={styles.cardTitle}>📍 Hình thức nhận hàng</Text>
             <View style={styles.deliveryToggleRow}>
-              <Pressable
-                style={[styles.deliveryBtn, pickupAtWarehouse && styles.deliveryBtnActive]}
+              <Pressable 
+                style={[styles.deliveryBtn, pickupAtWarehouse && styles.deliveryBtnActive]} 
                 onPress={() => setPickupAtWarehouse(true)}
               >
-                <Text style={[styles.deliveryBtnText, pickupAtWarehouse && styles.deliveryBtnTextActive]}>Tại kho</Text>
+                <Text style={[styles.deliveryBtnText, pickupAtWarehouse && styles.deliveryBtnTextActive]}>📦 Nhận tại kho</Text>
               </Pressable>
-              <Pressable
-                style={[styles.deliveryBtn, !pickupAtWarehouse && styles.deliveryBtnActive]}
+              <Pressable 
+                style={[styles.deliveryBtn, !pickupAtWarehouse && styles.deliveryBtnActive]} 
                 onPress={() => setPickupAtWarehouse(false)}
               >
-                <Text style={[styles.deliveryBtnText, !pickupAtWarehouse && styles.deliveryBtnTextActive]}>Giao tận nơi</Text>
+                <Text style={[styles.deliveryBtnText, !pickupAtWarehouse && styles.deliveryBtnTextActive]}>🚚 Giao tận nơi</Text>
               </Pressable>
             </View>
 
             {!pickupAtWarehouse && (
-              <View style={styles.addressContainer}>
-                <Text style={styles.inputLabel}>Địa chỉ giao hàng:</Text>
-                <TextInput
-                  style={styles.addressInput}
-                  value={address}
-                  onChangeText={setAddress}
-                  placeholder="Nhập địa chỉ nhận hàng chi tiết..."
-                  multiline
-                />
-              </View>
+              <Pressable 
+                style={styles.shopeeAddressCard}
+                onPress={() => setIsAddressModalVisible(true)}
+              >
+                <View style={styles.addressLocIcon}>
+                  <Text style={{fontSize: 20}}>📍</Text>
+                </View>
+                <View style={styles.addressInfoMain}>
+                  <View style={styles.addressNamePhone}>
+                    <Text style={styles.shopeeName}>{shippingName || profile?.full_name}</Text>
+                    <View style={styles.vDivider} />
+                    <Text style={styles.shopeePhone}>{shippingPhone || profile?.phone}</Text>
+                  </View>
+                  <Text style={styles.shopeeAddressText} numberOfLines={2}>
+                    {address || 'Chưa có địa chỉ giao hàng. Nhấn để thêm.'}
+                  </Text>
+                </View>
+                <Text style={styles.chevronRight}>›</Text>
+              </Pressable>
             )}
           </Card>
 
-          {/* Payment Method - Mixed */}
+          {/* Payment Method Card */}
           <Card style={styles.paymentCard}>
             <Text style={styles.sectionLabel}>Phương thức thanh toán</Text>
 
@@ -237,6 +252,58 @@ const ShopScreen = () => {
           </Card>
 
           <Button title="Gửi xác nhận đơn hàng" onPress={handleOrder} loading={loading} variant="accent" fullWidth size="lg" style={{ marginTop: Spacing.md }} />
+
+          {/* Address Edit Modal */}
+          <Modal
+            visible={isAddressModalVisible}
+            animationType="slide"
+            transparent={true}
+            onRequestClose={() => setIsAddressModalVisible(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Địa chỉ nhận hàng</Text>
+                  <Pressable onPress={() => setIsAddressModalVisible(false)}>
+                    <Text style={styles.closeBtn}>✕</Text>
+                  </Pressable>
+                </View>
+
+                <Text style={styles.inputLabel}>Tên người nhận</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={shippingName || profile?.full_name || ''}
+                  onChangeText={setShippingName}
+                  placeholder="Nhập tên người nhận"
+                />
+
+                <Text style={styles.inputLabel}>Số điện thoại</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={shippingPhone || profile?.phone || ''}
+                  onChangeText={setShippingPhone}
+                  placeholder="Nhập số điện thoại"
+                  keyboardType="phone-pad"
+                />
+
+                <Text style={styles.inputLabel}>Địa chỉ chi tiết</Text>
+                <TextInput
+                  style={[styles.modalInput, { minHeight: 80, textAlignVertical: 'top' }]}
+                  value={address}
+                  onChangeText={setAddress}
+                  placeholder="Số nhà, tên đường, phường/xã, quận/huyện..."
+                  multiline
+                />
+
+                <Button 
+                  title="Xác nhận" 
+                  onPress={() => setIsAddressModalVisible(false)} 
+                  fullWidth 
+                  style={{ marginTop: Spacing.lg }} 
+                />
+              </View>
+            </View>
+          </Modal>
         </ScrollView>
       </SafeAreaView>
     );
@@ -365,13 +432,40 @@ const styles = StyleSheet.create({
   rewardBadge: { fontSize: 10, fontWeight: '700', color: Colors.success, marginTop: 4, backgroundColor: 'rgba(39, 174, 96, 0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: Radius.sm, alignSelf: 'flex-start' },
   rewardNote: { marginTop: Spacing.sm, alignItems: 'flex-end' },
   rewardNoteText: { fontSize: FontSize.xs, color: Colors.text.secondary },
+  deliveryCard: { marginBottom: Spacing.md },
   deliveryToggleRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
   deliveryBtn: { flex: 1, padding: Spacing.sm, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', backgroundColor: Colors.surface },
   deliveryBtnActive: { borderColor: Colors.primary, backgroundColor: '#EFF6FF' },
   deliveryBtnText: { fontSize: FontSize.sm, color: Colors.text.secondary, fontWeight: '600' },
   deliveryBtnTextActive: { color: Colors.primary },
+  
+  shopeeAddressCard: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: '#fff', 
+    borderWidth: 1, 
+    borderColor: '#e8e8e8', 
+    borderRadius: Radius.md, 
+    padding: Spacing.md,
+    marginTop: Spacing.xs
+  },
+  addressLocIcon: { marginRight: Spacing.md },
+  addressInfoMain: { flex: 1 },
+  addressNamePhone: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  shopeeName: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text.primary },
+  vDivider: { width: 1, height: 12, backgroundColor: Colors.border, marginHorizontal: 8 },
+  shopeePhone: { fontSize: FontSize.sm, color: Colors.text.secondary },
+  shopeeAddressText: { fontSize: FontSize.xs, color: Colors.text.secondary, lineHeight: 18 },
+  chevronRight: { fontSize: 24, color: Colors.text.tertiary, marginLeft: Spacing.sm },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#fff', borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.xl, paddingBottom: 40 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xl },
+  modalTitle: { fontSize: FontSize.md, fontWeight: '800', color: Colors.text.primary },
+  closeBtn: { fontSize: 20, color: Colors.text.tertiary },
+  modalInput: { backgroundColor: Colors.background, borderRadius: Radius.md, padding: Spacing.md, fontSize: FontSize.sm, color: Colors.text.primary, marginBottom: Spacing.md },
+  inputLabel: { fontSize: FontSize.xs, color: Colors.text.secondary, marginBottom: 6, fontWeight: '600' },
   addressContainer: { marginBottom: Spacing.md },
-  inputLabel: { fontSize: FontSize.xs, color: Colors.text.secondary, marginBottom: 4, fontWeight: '600' },
   addressInput: { 
     backgroundColor: Colors.surface, 
     borderRadius: Radius.md, 
