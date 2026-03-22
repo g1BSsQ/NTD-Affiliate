@@ -7,6 +7,7 @@ import {
   Pressable,
   Alert,
   Image,
+  TextInput,
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -52,6 +53,12 @@ const ShopScreen = () => {
 
   const rewardBalance = wallets.find(w => w.type === 'REWARD')?.balance ?? 0;
 
+  useEffect(() => {
+    if (profile?.address) {
+      setAddress(profile.address);
+    }
+  }, [profile]);
+
   const total = selected ? Math.floor(selected.boxes * selected.pricePerBox * 1.08) : 0;
   const vat = selected ? total - selected.boxes * selected.pricePerBox : 0;
   const estimatedReward = selected ? selected.boxes * REWARD_PER_BOX : 0;
@@ -67,22 +74,35 @@ const ShopScreen = () => {
 
   const handleOrder = async () => {
     if (!selected) return;
-
     if (remainingAmount > 0 && !receipt) {
-      Alert.alert('Thiếu biên lai', 'Vui lòng upload ảnh biên lai chuyển khoản.');
+      Alert.alert('Lỗi', 'Vui lòng tải ảnh biên lai chuyển khoản.');
+      return;
+    }
+    if (!pickupAtWarehouse && !address.trim()) {
+      Alert.alert('Lỗi', 'Vui lòng nhập địa chỉ giao hàng.');
       return;
     }
 
     setLoading(true);
     try {
-      await createOrder(selected.id, selected.boxes, total, receipt || '', pointsToUse);
-      Alert.alert('Đã gửi!', 'Đơn hàng đang chờ Admin xác nhận thanh toán.');
+      await createOrder(
+        selected.id,
+        selected.boxes,
+        total,
+        receipt || '',
+        pointsToUse,
+        pickupAtWarehouse ? 'Tại kho đại lý' : address,
+        pickupAtWarehouse ? 'PICKUP' : 'SHIPPING'
+      );
+      Alert.alert('Thành công!', 'Đơn hàng của bạn đã được gửi và đang chờ xác nhận.');
       setStep('shop');
       setSelected(null);
       setReceipt(null);
       setUsePoints(false);
-    } catch (e) {
-      Alert.alert('Lỗi', 'Không thể tạo đơn hàng. Vui lòng thử lại.');
+      setAddress('');
+      setPickupAtWarehouse(true);
+    } catch (err: any) {
+      Alert.alert('Lỗi', err.message || 'Không thể tạo đơn hàng.');
     } finally {
       setLoading(false);
     }
@@ -112,6 +132,38 @@ const ShopScreen = () => {
             <View style={styles.rewardNote}>
               <Text style={styles.rewardNoteText}>🎁 Dự kiến tích lũy: <Text style={styles.rewardVal}>{formatVND(estimatedReward)}</Text></Text>
             </View>
+          </Card>
+
+          {/* Delivery Method */}
+          <Card style={styles.summaryCard}>
+            <Text style={styles.cardTitle}>📍 Hình thức nhận hàng</Text>
+            <View style={styles.deliveryToggleRow}>
+              <Pressable
+                style={[styles.deliveryBtn, pickupAtWarehouse && styles.deliveryBtnActive]}
+                onPress={() => setPickupAtWarehouse(true)}
+              >
+                <Text style={[styles.deliveryBtnText, pickupAtWarehouse && styles.deliveryBtnTextActive]}>Tại kho</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.deliveryBtn, !pickupAtWarehouse && styles.deliveryBtnActive]}
+                onPress={() => setPickupAtWarehouse(false)}
+              >
+                <Text style={[styles.deliveryBtnText, !pickupAtWarehouse && styles.deliveryBtnTextActive]}>Giao tận nơi</Text>
+              </Pressable>
+            </View>
+
+            {!pickupAtWarehouse && (
+              <View style={styles.addressContainer}>
+                <Text style={styles.inputLabel}>Địa chỉ giao hàng:</Text>
+                <TextInput
+                  style={styles.addressInput}
+                  value={address}
+                  onChangeText={setAddress}
+                  placeholder="Nhập địa chỉ nhận hàng chi tiết..."
+                  multiline
+                />
+              </View>
+            )}
           </Card>
 
           {/* Payment Method - Mixed */}
@@ -313,6 +365,24 @@ const styles = StyleSheet.create({
   rewardBadge: { fontSize: 10, fontWeight: '700', color: Colors.success, marginTop: 4, backgroundColor: 'rgba(39, 174, 96, 0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: Radius.sm, alignSelf: 'flex-start' },
   rewardNote: { marginTop: Spacing.sm, alignItems: 'flex-end' },
   rewardNoteText: { fontSize: FontSize.xs, color: Colors.text.secondary },
+  deliveryToggleRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
+  deliveryBtn: { flex: 1, padding: Spacing.sm, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', backgroundColor: Colors.surface },
+  deliveryBtnActive: { borderColor: Colors.primary, backgroundColor: '#EFF6FF' },
+  deliveryBtnText: { fontSize: FontSize.sm, color: Colors.text.secondary, fontWeight: '600' },
+  deliveryBtnTextActive: { color: Colors.primary },
+  addressContainer: { marginBottom: Spacing.md },
+  inputLabel: { fontSize: FontSize.xs, color: Colors.text.secondary, marginBottom: 4, fontWeight: '600' },
+  addressInput: { 
+    backgroundColor: Colors.surface, 
+    borderRadius: Radius.md, 
+    borderWidth: 1, 
+    borderColor: Colors.border, 
+    padding: Spacing.sm, 
+    fontSize: FontSize.sm, 
+    color: Colors.text.primary,
+    minHeight: 80,
+    textAlignVertical: 'top'
+  },
   rewardVal: { fontWeight: '700', color: Colors.success },
   sectionLabel: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.text.tertiary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: Spacing.sm, marginTop: Spacing.md },
   methodRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },

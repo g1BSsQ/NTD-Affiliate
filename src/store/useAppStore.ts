@@ -199,7 +199,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  createOrder: async (packageId, boxes, totalPrice, receiptUrl, pointsUsed = 0) => {
+  createOrder: async (packageId, boxes, totalPrice, receiptUrl, pointsUsed = 0, shippingAddress = '', deliveryMethod = 'PICKUP') => {
     const { profile: user } = get();
     if (!user) return;
     const { data, error } = await supabase
@@ -211,7 +211,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         total_price: totalPrice,
         points_used: pointsUsed,
         status: 'PENDING_ADMIN',
-        receipt_url: receiptUrl
+        receipt_url: receiptUrl,
+        shipping_address: shippingAddress,
+        delivery_method: deliveryMethod
       }])
       .select()
       .single();
