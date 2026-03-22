@@ -140,26 +140,29 @@ const NetworkScreen = () => {
       }
     });
 
-    // 2. Draft (Pending) nodes
-    placementRequests.filter(r => r.status === 'PENDING').forEach(req => {
+    // 2. Draft (Planning & Pending) nodes
+    placementRequests.filter(r => r.status === 'PLANNING' || r.status === 'PENDING').forEach(req => {
       if (!map[req.parent_id]) map[req.parent_id] = {};
       
-      // Find the member details from unplacedMembers or common profile knowledge
       const member = unplacedMembers.find(m => m.user_id === req.member_id);
       
       map[req.parent_id][req.position] = {
-        id: req.id, // Store request ID for cancellation
+        id: req.id,
         user_id: req.member_id,
         full_name: member?.full_name || 'Hội viên mới',
         node_position: req.position,
         isDraft: true,
         parent_id: req.parent_id,
-        status: 'PENDING_APPROVAL'
+        status: req.status
       };
     });
 
     return map;
   }, [binaryTree, placementRequests, unplacedMembers]);
+
+  const planningCount = useMemo(() => 
+    placementRequests.filter(r => r.status === 'PLANNING').length
+  , [placementRequests]);
 
   if (loading && !refreshing && (!networkNode || !profile)) {
     return (
@@ -221,8 +224,10 @@ const NetworkScreen = () => {
             onPress={() => setViewRootId(node.user_id)}
           >
             {node.isDraft && (
-              <View style={styles.draftBadge}>
-                <Text style={styles.draftBadgeText}>Chờ duyệt</Text>
+              <View style={[styles.draftBadge, node.status === 'PENDING' && styles.pendingBadge]}>
+                <Text style={styles.draftBadgeText}>
+                  {node.status === 'PLANNING' ? 'Bản nháp' : 'Chờ duyệt'}
+                </Text>
               </View>
             )}
             <Text style={styles.nodeName} numberOfLines={1}>{node.full_name}</Text>
@@ -357,6 +362,26 @@ const NetworkScreen = () => {
           {/* F1 List removed as requested, all info now in tree */}
         </ScrollView>
 
+        {/* Global Submit Button for Drafts */}
+        {planningCount > 0 && (
+          <View style={styles.floatingSubmitContainer}>
+            <Button 
+              title={`Gửi phê duyệt (${planningCount} phiếu)`}
+              onPress={() => {
+                Alert.alert(
+                  'Gửi phê duyệt',
+                  `Bạn có chắc chắn muốn gửi ${planningCount} yêu cầu sắp xếp này cho Admin phê duyệt không?`,
+                  [
+                    { text: 'Hủy', style: 'cancel' },
+                    { text: 'Xác nhận gửi', onPress: () => useAppStore.getState().submitAllPlacements() }
+                  ]
+                );
+              }}
+              loading={submitting}
+            />
+          </View>
+        )}
+
         {/* Placement Confirmation Modal */}
         <Modal visible={!!selectedSlot} transparent animationType="fade">
           <View style={styles.modalOverlay}>
@@ -435,7 +460,8 @@ const styles = StyleSheet.create({
   rootNode: { borderColor: Colors.primary, borderWidth: 2 },
   draftNode: { borderStyle: 'dashed', opacity: 0.8, borderColor: Colors.warning },
   
-  draftBadge: { position: 'absolute', top: -10, backgroundColor: Colors.warning, paddingHorizontal: 4, borderRadius: 4, zIndex: 10 },
+  draftBadge: { position: 'absolute', top: -10, backgroundColor: Colors.text.tertiary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, zIndex: 10 },
+  pendingBadge: { backgroundColor: Colors.warning },
   draftBadgeText: { fontSize: 7, fontWeight: '800', color: '#fff' },
 
   nodeName: { fontSize: 8, fontWeight: '700', color: Colors.text.primary, textAlign: 'center' },
@@ -478,6 +504,22 @@ const styles = StyleSheet.create({
   confirmMember: { fontSize: FontSize.md, fontWeight: '800', color: Colors.primary, marginBottom: Spacing.md },
   modalButtons: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.xl, width: '100%' },
   modalBtn: { flex: 1 },
+  floatingSubmitContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  }
 });
 
 export default NetworkScreen;

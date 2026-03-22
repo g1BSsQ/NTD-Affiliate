@@ -83,7 +83,7 @@ export interface PlacementRequest {
   member_id: string;
   parent_id: string;
   position: 'LEFT' | 'RIGHT';
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  status: 'PLANNING' | 'PENDING' | 'APPROVED' | 'REJECTED';
   created_at: string;
 }
 
@@ -115,6 +115,7 @@ interface AppState {
   fetchPlacementRequests: () => Promise<void>;
   cancelPlacementRequest: (requestId: string) => Promise<void>;
   submitPlacementRequest: (memberId: string, parentId: string, position: 'LEFT' | 'RIGHT') => Promise<void>;
+  submitAllPlacements: () => Promise<void>;
   createOrder: (packageId: string, boxes: number, totalPrice: number, receiptUrl: string, pointsUsed: number, shippingAddress?: string, deliveryMethod?: string, shippingName?: string, shippingPhone?: string) => Promise<void>;
   uploadOrderReceipt: (orderId: string, receiptUrl: string) => Promise<void>;
   fetchAll: () => Promise<void>;
@@ -285,7 +286,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const { error } = await supabase.from('placement_requests').delete().eq('id', requestId);
       if (error) throw error;
-      await get().fetchPlacementRequests();
+      // Also refresh unplaced members since the member is now "free" again
+      await Promise.all([
+        get().fetchPlacementRequests(),
+        get().fetchUnplacedMembers(),
+        get().fetchBinaryTree() // Refresh tree just in case
+      ]);
     } catch (e) { console.warn('cancelPlacementRequest failed:', e); }
   },
 
@@ -294,32 +300,48 @@ export const useAppStore = create<AppState>((set, get) => ({
       const { profile: user } = get();
       if (!user) return;
 
-      // 1. Check if there's already a pending request for this member
-      const { data: existing } = await supabase
+      // 1. Delete any existing PLANNING or PENDING request for this member (Repositioning)
+      await supabase
         .from('placement_requests')
-        .select('id')
+        .delete()
         .eq('member_id', memberId)
-        .eq('status', 'PENDING');
+        .in('status', ['PLANNING', 'PENDING']);
 
-      if (existing && existing.length > 0) {
-        // Delete the old pending request so the new one can replace it
-        await supabase.from('placement_requests').delete().eq('id', existing[0].id);
-      }
-
-      // 2. Submit the new request
+      // 2. Submit as PLANNING (Draft)
       const { error } = await supabase.from('placement_requests').insert([{
         sponsor_id: user.id,
         member_id: memberId,
         parent_id: parentId,
         position: position,
-        status: 'PENDING'
+        status: 'PLANNING'
       }]);
       if (error) throw error;
-      await get().fetchPlacementRequests();
+      
+      await Promise.all([
+        get().fetchPlacementRequests(),
+        get().fetchUnplacedMembers(),
+        get().fetchBinaryTree()
+      ]);
     } catch (e: any) {
       console.warn('submitPlacementRequest failed:', e);
       throw e;
     }
+  },
+
+  submitAllPlacements: async () => {
+    try {
+      const { profile: user } = get();
+      if (!user) return;
+      
+      const { error } = await supabase
+        .from('placement_requests')
+        .update({ status: 'PENDING' })
+        .eq('sponsor_id', user.id)
+        .eq('status', 'PLANNING');
+      
+      if (error) throw error;
+      await get().fetchPlacementRequests();
+    } catch (e) { console.warn('submitAllPlacements failed:', e); }
   },
 
   fetchBinaryTree: async () => {
