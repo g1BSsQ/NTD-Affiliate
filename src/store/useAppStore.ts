@@ -25,6 +25,7 @@ export interface Order {
   package_id: string;
   boxes: number;
   total_price: number;
+  points_used: number; // Added points_used
   status: string;
   receipt_url: string | null;
   created_at: string;
@@ -80,6 +81,7 @@ interface AppState {
   fetchTransactions: () => Promise<void>;
   fetchNetworkNode: () => Promise<void>;
   fetchSubordinates: () => Promise<void>;
+  createOrder: (packageId: string, boxes: number, totalPrice: number, receiptUrl: string, pointsUsed: number) => Promise<void>; // Added createOrder
   fetchAll: () => Promise<void>;
 
   reset: () => void;
@@ -128,7 +130,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (!user) return;
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
+        .select('*, points_used') // Added points_used to select
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       if (error) console.warn('fetchOrders error:', error.message);
@@ -192,9 +194,30 @@ export const useAppStore = create<AppState>((set, get) => ({
         });
         set({ subordinates: mapped });
       }
-    } catch (e) { console.warn('fetchSubordinates failed:', e); }
+    } catch (e) {
+      console.warn('fetchSubordinates failed:', e);
+    }
   },
 
+  createOrder: async (packageId, boxes, totalPrice, receiptUrl, pointsUsed = 0) => {
+    const { profile: user } = get();
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('orders')
+      .insert([{
+        user_id: user.id,
+        package_id: packageId,
+        boxes,
+        total_price: totalPrice,
+        points_used: pointsUsed,
+        status: 'PENDING_ADMIN',
+        receipt_url: receiptUrl
+      }])
+      .select()
+      .single();
+    if (error) throw error;
+    await get().fetchOrders();
+  },
 
   fetchAll: async () => {
     set({ loading: true });

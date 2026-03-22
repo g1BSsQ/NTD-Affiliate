@@ -44,10 +44,10 @@ const ShopScreen = () => {
 
   const [selected, setSelected] = useState<typeof PACKAGES[0] | null>(null);
   const [step, setStep] = useState<'shop' | 'checkout'>('shop');
-  const [paymentMethod, setPaymentMethod] = useState<'BANK' | 'REWARD'>('BANK');
+  const [usePoints, setUsePoints] = useState(false);
   const [pickupAtWarehouse, setPickupAtWarehouse] = useState(true);
   const [address, setAddress] = useState('');
-  const [receiptUri, setReceiptUri] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const rewardBalance = wallets.find(w => w.type === 'REWARD')?.balance ?? 0;
@@ -56,18 +56,20 @@ const ShopScreen = () => {
   const vat = selected ? total - selected.boxes * selected.pricePerBox : 0;
   const estimatedReward = selected ? selected.boxes * REWARD_PER_BOX : 0;
 
+  const amountToPay = selected ? total : 0;
+  const pointsToUse = usePoints ? Math.min(rewardBalance, amountToPay) : 0;
+  const remainingAmount = amountToPay - pointsToUse;
+
   const pickImage = async () => {
     const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8, maxWidth: 1920 });
-    if (result.assets?.[0]?.uri) setReceiptUri(result.assets[0].uri);
+    if (result.assets?.[0]?.uri) setReceipt(result.assets[0].uri);
   };
 
   const handleOrder = async () => {
-    if (paymentMethod === 'BANK' && !receiptUri) { 
-      Alert.alert('Thiếu biên lai', 'Vui lòng upload ảnh biên lai chuyển khoản.'); 
-      return; 
-    }
-    if (paymentMethod === 'REWARD' && rewardBalance < total) {
-      Alert.alert('Số dư không đủ', 'Ví điểm thưởng của bạn không đủ để thanh toán đơn hàng này.');
+    if (!selected) return;
+
+    if (remainingAmount > 0 && !receipt) {
+      Alert.alert('Thiếu biên lai', 'Vui lòng upload ảnh biên lai chuyển khoản.');
       return;
     }
 
@@ -75,7 +77,10 @@ const ShopScreen = () => {
     setTimeout(() => {
       setLoading(false);
       Alert.alert('Đã gửi!', 'Đơn hàng đang chờ Admin xác nhận thanh toán.');
-      setStep('shop'); setSelected(null); setReceiptUri(null);
+      setStep('shop');
+      setSelected(null);
+      setReceipt(null);
+      setUsePoints(false);
     }, 1200);
   };
 
@@ -105,67 +110,60 @@ const ShopScreen = () => {
             </View>
           </Card>
 
-          {/* Payment Method Selection */}
-          <Text style={styles.sectionLabel}>Phương thức thanh toán</Text>
-          <View style={styles.methodRow}>
-            <Pressable 
-              style={[styles.methodBtn, paymentMethod === 'BANK' && styles.methodActive]} 
-              onPress={() => setPaymentMethod('BANK')}
-            >
-              <Text style={[styles.methodTitle, paymentMethod === 'BANK' && styles.methodTextActive]}>🏦 Chuyển khoản</Text>
-              <Text style={styles.methodSub}>Xác nhận thủ công</Text>
-            </Pressable>
-            <Pressable 
-              style={[styles.methodBtn, paymentMethod === 'REWARD' && styles.methodActive]} 
-              onPress={() => setPaymentMethod('REWARD')}
-            >
-              <Text style={[styles.methodTitle, paymentMethod === 'REWARD' && styles.methodTextActive]}>💰 Ví Điểm Thưởng</Text>
-              <Text style={styles.methodSub}>Dư: {formatVND(rewardBalance)}</Text>
-            </Pressable>
-          </View>
+          {/* Payment Method - Mixed */}
+          <Card style={styles.paymentCard}>
+            <Text style={styles.sectionLabel}>Phương thức thanh toán</Text>
 
-          {/* Bank info */}
-          {paymentMethod === 'BANK' && (
-            <Card style={styles.bankCard}>
-              <Text style={styles.cardTitle}>🏦 Thông tin chuyển khoản</Text>
-              <Text style={styles.bankRow}>Ngân hàng: <Text style={styles.bankVal}>MB Bank</Text></Text>
-              <Text style={styles.bankRow}>Số TK: <Text style={styles.bankVal}>1234567890</Text></Text>
-              <Text style={styles.bankRow}>Chủ TK: <Text style={styles.bankVal}>COEDU EDUCATION JSC</Text></Text>
-              <Text style={styles.bankRow}>Số tiền: <Text style={[styles.bankVal, styles.bankAmt]}>{formatVND(total)}</Text></Text>
-              <View style={styles.qrMock}>
-                <Text style={styles.qrEmoji}>📱</Text>
-                <Text style={styles.qrNote}>QR Code chuyển khoản nhanh</Text>
+            <Pressable
+              style={styles.pointToggle}
+              onPress={() => setUsePoints(!usePoints)}
+            >
+              <View style={styles.checkboxContainer}>
+                <View style={[styles.checkbox, usePoints && styles.checkboxChecked]}>
+                  {usePoints && <View style={styles.checkmark} />}
+                </View>
+                <View style={styles.pointTextContainer}>
+                  <Text style={styles.pointLabel}>Sử dụng Ví Điểm Thưởng</Text>
+                  <Text style={styles.pointBalance}>Số dư: {formatVND(rewardBalance)}</Text>
+                </View>
               </View>
-            </Card>
-          )}
+            </Pressable>
 
-          {/* Reward Payment Info */}
-          {paymentMethod === 'REWARD' && (
-            <Card style={styles.rewardCard}>
-              <Text style={styles.rewardInfoText}>Hệ thống sẽ khấu trừ trực tiếp <Text style={styles.rewardHighlight}>{formatVND(total)}</Text> từ Ví Điểm Thưởng của bạn.</Text>
-              {rewardBalance < total && (
-                <Text style={styles.insufficientText}>⚠️ Bạn còn thiếu {formatVND(total - rewardBalance)} để thực hiện giao dịch này.</Text>
-              )}
-            </Card>
-          )}
+            {usePoints && (
+              <View style={styles.calculationRow}>
+                <Text style={styles.calcLabel}>Số điểm sử dụng:</Text>
+                <Text style={styles.calcValue}>-{formatVND(pointsToUse)}</Text>
+              </View>
+            )}
 
-          {/* Receipt upload */}
-          {paymentMethod === 'BANK' && (
-            <Card>
-              <Text style={styles.cardTitle}>📸 Upload biên lai</Text>
-              <Pressable style={styles.uploadBox} onPress={pickImage}>
-                {receiptUri ? (
-                  <Image source={{ uri: receiptUri }} style={styles.previewImg} resizeMode="cover" />
-                ) : (
-                  <View style={styles.uploadPlaceholder}>
-                    <Text style={styles.uploadIcon}>📷</Text>
-                    <Text style={styles.uploadText}>Chọn ảnh biên lai</Text>
-                  </View>
-                )}
-              </Pressable>
-              {receiptUri && <Pressable onPress={() => setReceiptUri(null)}><Text style={styles.removeText}>✕ Xóa</Text></Pressable>}
-            </Card>
-          )}
+            <View style={styles.transferInfo}>
+              <Text style={styles.transferLabel}>Số tiền cần chuyển khoản:</Text>
+              <Text style={styles.transferAmount}>
+                {formatVND(remainingAmount)}
+              </Text>
+            </View>
+
+            {remainingAmount > 0 ? (
+              <View style={styles.bankInfo}>
+                <Text style={styles.bankTitle}>Thông tin chuyển khoản:</Text>
+                <Text style={styles.bankText}>Ngân hàng: MB Bank</Text>
+                <Text style={styles.bankText}>Số TK: 1234567890</Text>
+                <Text style={styles.bankText}>Chủ TK: COEDU EDUCATION JSC</Text>
+                <Text style={styles.bankNote}>* Nội dung: MDH {profile?.sponsor_code} {selected.boxes}H</Text>
+
+                <Pressable style={styles.uploadBtn} onPress={pickImage}>
+                  <Text style={styles.uploadBtnText}>
+                    {receipt ? '✅ Đã tải biên lai' : '📤 Tải ảnh biên lai'}
+                  </Text>
+                </Pressable>
+                {receipt && <Pressable onPress={() => setReceipt(null)}><Text style={styles.removeText}>✕ Xóa</Text></Pressable>}
+              </View>
+            ) : (
+              <View style={styles.fullPointNote}>
+                <Text style={styles.fullPointText}>🎉 Bạn dùng 100% điểm thưởng, không cần chuyển khoản.</Text>
+              </View>
+            )}
+          </Card>
 
           <Button title="Gửi xác nhận đơn hàng" onPress={handleOrder} loading={loading} variant="accent" fullWidth size="lg" style={{ marginTop: Spacing.md }} />
         </ScrollView>
@@ -175,8 +173,8 @@ const ShopScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView 
-        contentContainerStyle={styles.container} 
+      <ScrollView
+        contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} tintColor={Colors.primary} />
@@ -258,6 +256,32 @@ const styles = StyleSheet.create({
   bankRow: { fontSize: FontSize.sm, color: Colors.text.secondary, marginBottom: Spacing.xs },
   bankVal: { fontWeight: '700', color: Colors.text.primary },
   bankAmt: { color: Colors.accent, fontSize: FontSize.md },
+  bankNote: { color: Colors.primary, fontWeight: '700', fontSize: 10, marginTop: Spacing.sm },
+  
+  // Mixed Payment Styles
+  paymentCard: { padding: Spacing.md, marginBottom: Spacing.lg },
+  pointToggle: { paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border, marginBottom: Spacing.md },
+  checkboxContainer: { flexDirection: 'row', alignItems: 'center' },
+  checkbox: { width: 22, height: 22, borderWidth: 2, borderColor: Colors.primary, borderRadius: 4, marginRight: Spacing.md, justifyContent: 'center', alignItems: 'center' },
+  checkboxChecked: { backgroundColor: Colors.primary },
+  checkmark: { width: 10, height: 10, backgroundColor: 'white', borderRadius: 2 },
+  pointTextContainer: { flex: 1 },
+  pointLabel: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text.primary },
+  pointBalance: { fontSize: 11, color: Colors.text.secondary },
+  calculationRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.md },
+  calcLabel: { color: Colors.text.secondary, fontSize: FontSize.sm },
+  calcValue: { color: Colors.danger, fontWeight: '700', fontSize: FontSize.sm },
+  transferInfo: { backgroundColor: 'rgba(52, 152, 219, 0.05)', padding: Spacing.md, borderRadius: Radius.md, marginBottom: Spacing.md },
+  transferLabel: { fontSize: 12, color: Colors.text.secondary, marginBottom: 4 },
+  transferAmount: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.primary },
+  bankInfo: { marginTop: Spacing.md },
+  bankTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text.primary, marginBottom: 4 },
+  bankText: { fontSize: 13, color: Colors.text.secondary, marginBottom: 2 },
+  uploadBtn: { backgroundColor: Colors.primary, padding: Spacing.md, borderRadius: Radius.md, alignItems: 'center', marginTop: Spacing.md },
+  uploadBtnText: { color: 'white', fontWeight: '700' },
+  fullPointNote: { padding: Spacing.md, backgroundColor: 'rgba(46, 204, 113, 0.1)', borderRadius: Radius.md, alignItems: 'center' },
+
+  fullPointText: { color: Colors.success, fontWeight: '700', textAlign: 'center' },
   qrMock: { marginTop: Spacing.md, padding: Spacing.lg, borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed', borderRadius: Radius.md, alignItems: 'center' },
   qrEmoji: { fontSize: 36, marginBottom: Spacing.xs },
   qrNote: { fontSize: FontSize.xs, color: Colors.text.secondary },
