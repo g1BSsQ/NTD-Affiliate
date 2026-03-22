@@ -113,6 +113,8 @@ const NetworkScreen = () => {
     translateY.setOffset(0);
   };
 
+  const scrollViewRef = useRef<ScrollView>(null);
+
   // --- Data Fetching ---
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -127,6 +129,15 @@ const NetworkScreen = () => {
   useEffect(() => {
     if (profile && !viewRootId) setViewRootId(profile.id);
   }, [profile]);
+
+  // Auto-scroll to navigation controls when viewing a sub-member
+  useEffect(() => {
+    if (viewRootId && profile && viewRootId !== profile.id) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 500); // Small delay for layout to finish
+    }
+  }, [viewRootId, profile]);
 
   // Safety: Reset viewRootId if it's no longer found in either official tree or draft requests
   useEffect(() => {
@@ -355,6 +366,7 @@ const NetworkScreen = () => {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.safeArea}>
         <ScrollView 
+          ref={scrollViewRef}
           contentContainerStyle={styles.container} 
           scrollEnabled={!isGesturing}
           showsVerticalScrollIndicator={false}
@@ -393,7 +405,7 @@ const NetworkScreen = () => {
           {/* Diagram Section */}
           <View style={styles.diagramContainer}>
             <View style={styles.diagramHeader}>
-              <Text style={styles.treeTitle}>Sơ đồ Cây ảo (Zoom & Pan)</Text>
+              <Text style={styles.treeTitle}>Sơ đồ Cây ảo</Text>
               <TouchableOpacity onPress={resetZoom} style={styles.resetBtn}>
                 <Text style={styles.resetBtnText}>Đặt lại Zoom</Text>
               </TouchableOpacity>
