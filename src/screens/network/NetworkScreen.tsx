@@ -128,6 +128,19 @@ const NetworkScreen = () => {
     if (profile && !viewRootId) setViewRootId(profile.id);
   }, [profile]);
 
+  // Safety: Reset viewRootId if it's no longer found in either official tree or draft requests
+  useEffect(() => {
+    if (!profile || !viewRootId || viewRootId === profile.id) return;
+    
+    const existsInOfficial = binaryTree.some(n => n.user_id === viewRootId);
+    const existsInDrafts = placementRequests.some(r => r.member_id === viewRootId);
+    
+    if (!existsInOfficial && !existsInDrafts && !loading) {
+      console.log('viewRootId became invalid, resetting to profile.id');
+      setViewRootId(profile.id);
+    }
+  }, [binaryTree, placementRequests, viewRootId, profile, loading]);
+
   // Tree Helper: Merge binaryTree and pending placementRequests
   const treeMap = useMemo(() => {
     const map: Record<string, { LEFT?: any, RIGHT?: any }> = {};
@@ -192,6 +205,18 @@ const NetworkScreen = () => {
     }
   };
 
+  const handleCancelDraft = async (reqId: string, memberId: string) => {
+    try {
+      await cancelPlacementRequest(reqId);
+      // If we were drilled down into this draft, go back up
+      if (viewRootId === memberId) {
+        setViewRootId(profile?.id || '');
+      }
+    } catch (e) {
+      console.warn('handleCancelDraft failed:', e);
+    }
+  };
+
   const renderNode = (node: any, parentId: string, pos: 'LEFT' | 'RIGHT', depth: number) => {
     if (depth > 4) return null; // Increased depth for better preview
 
@@ -241,7 +266,7 @@ const NetworkScreen = () => {
             {node.isDraft && (
               <TouchableOpacity 
                 style={styles.cancelDraftBtn} 
-                onPress={() => cancelPlacementRequest(node.id)}
+                onPress={() => handleCancelDraft(node.id, node.user_id)}
               >
                 <Text style={styles.cancelDraftText}>Hủy</Text>
               </TouchableOpacity>
