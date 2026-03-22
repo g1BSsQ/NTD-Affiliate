@@ -54,8 +54,12 @@ const NetworkScreen = () => {
   const [memberToPlace, setMemberToPlace] = useState<UnplacedMember | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [viewRootId, setViewRootId] = useState<string | null>(null);
+  const [isGesturing, setIsGesturing] = useState(false);
 
-  // --- Zoom & Pan Logic (Simplified with Animated) ---
+  // --- Zoom & Pan Logic (Enhanced) ---
+  const pinchRef = useRef(null);
+  const panRef = useRef(null);
+  
   const scale = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
@@ -69,16 +73,20 @@ const NetworkScreen = () => {
   );
 
   const onPinchStateChange = (event: any) => {
+    if (event.nativeEvent.state === State.BEGAN) setIsGesturing(true);
     if (event.nativeEvent.oldState === State.ACTIVE) {
       lastScale.current *= event.nativeEvent.scale;
-      // Clamp scale
       if (lastScale.current < 0.5) lastScale.current = 0.5;
       if (lastScale.current > 2) lastScale.current = 2;
       scale.setValue(lastScale.current);
+      setIsGesturing(false);
+    } else if (event.nativeEvent.state === State.FAILED || event.nativeEvent.state === State.CANCELLED) {
+      setIsGesturing(false);
     }
   };
 
   const onPanStateChange = (event: any) => {
+    if (event.nativeEvent.state === State.BEGAN) setIsGesturing(true);
     if (event.nativeEvent.oldState === State.ACTIVE) {
       lastOffset.current.x += event.nativeEvent.translationX;
       lastOffset.current.y += event.nativeEvent.translationY;
@@ -86,12 +94,16 @@ const NetworkScreen = () => {
       translateX.setValue(0);
       translateY.setOffset(lastOffset.current.y);
       translateY.setValue(0);
+      setIsGesturing(false);
+    } else if (event.nativeEvent.state === State.FAILED || event.nativeEvent.state === State.CANCELLED) {
+      setIsGesturing(false);
     }
   };
 
   const resetZoom = () => {
     lastScale.current = 1;
     lastOffset.current = { x: 0, y: 0 };
+    setIsGesturing(false);
     Animated.parallel([
       Animated.spring(scale, { toValue: 1, useNativeDriver: true }),
       Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
@@ -253,6 +265,7 @@ const NetworkScreen = () => {
       <SafeAreaView style={styles.safeArea}>
         <ScrollView 
           contentContainerStyle={styles.container} 
+          scrollEnabled={!isGesturing}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} tintColor={Colors.primary} />
@@ -297,11 +310,15 @@ const NetworkScreen = () => {
 
             <View style={styles.canvasFrame}>
               <PanGestureHandler
+                ref={panRef}
+                simultaneousHandlers={[pinchRef]}
                 onGestureEvent={onPanEvent}
                 onHandlerStateChange={onPanStateChange}
               >
                 <Animated.View style={{ flex: 1 }}>
                   <PinchGestureHandler
+                    ref={pinchRef}
+                    simultaneousHandlers={[panRef]}
                     onGestureEvent={onPinchEvent}
                     onHandlerStateChange={onPinchStateChange}
                   >
