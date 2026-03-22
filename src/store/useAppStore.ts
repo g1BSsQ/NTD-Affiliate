@@ -185,7 +185,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           position: item.position,
           total_sales: item.total_sales,
           full_name: (item.profiles as any)?.full_name || 'Hội viên mới',
-          status: (item.profiles as any)?.status || 'PENDING'
+          status: (item.profiles as any)?.status || 'NEW'
         }));
         set({ subordinates: mapped });
       }

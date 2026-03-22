@@ -40,7 +40,7 @@ export const UserStatusBadge: React.FC<{ status: UserStatus }> = ({ status }) =>
     [UserStatus.ACTIVE]: { label: 'Đã kích hoạt', variant: 'success' },
     [UserStatus.BLOCKED]: { label: 'Bị khóa', variant: 'danger' },
   };
-  const cfg = map[status];
+  const cfg = map[status] || { label: status || 'Hội viên', variant: 'neutral' };
   return <Badge label={cfg.label} variant={cfg.variant} />;
 };
 
