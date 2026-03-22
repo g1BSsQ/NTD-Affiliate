@@ -251,7 +251,7 @@ const NetworkScreen = () => {
             {node.isDraft && (
               <View style={[styles.draftBadge, node.status === 'PENDING' && styles.pendingBadge]}>
                 <Text style={styles.draftBadgeText}>
-                  {node.status === 'PLANNING' ? 'Bản nháp' : 'Chờ duyệt'}
+                  {node.status === 'PLANNING' ? 'Nháp' : 'Chờ'}
                 </Text>
               </View>
             )}
@@ -262,16 +262,26 @@ const NetworkScreen = () => {
             )}
 
             <Text style={styles.nodePos}>{pos === 'LEFT' ? 'Trái' : 'Phải'}</Text>
-
-            {node.isDraft && (
-              <TouchableOpacity 
-                style={styles.cancelDraftBtn} 
-                onPress={() => handleCancelDraft(node.id, node.user_id)}
-              >
-                <Text style={styles.cancelDraftText}>Hủy</Text>
-              </TouchableOpacity>
-            )}
           </TouchableOpacity>
+
+          {node.isDraft && (
+            <TouchableOpacity 
+              style={styles.absoluteCancelBtn} 
+              onPress={() => {
+                Alert.alert(
+                  'Hủy yêu cầu',
+                  'Bạn có chắc chắn muốn hủy yêu cầu sắp xếp này?',
+                  [
+                    { text: 'Quay lại', style: 'cancel' },
+                    { text: 'Đồng ý Hủy', style: 'destructive', onPress: () => handleCancelDraft(node.id, node.user_id) }
+                  ]
+                );
+              }}
+              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            >
+              <Text style={styles.absoluteCancelText}>×</Text>
+            </TouchableOpacity>
+          )}
           
           <View style={styles.connectorLine} />
         </View>
@@ -488,6 +498,24 @@ const styles = StyleSheet.create({
   draftBadge: { position: 'absolute', top: -10, backgroundColor: Colors.text.tertiary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, zIndex: 10 },
   pendingBadge: { backgroundColor: Colors.warning },
   draftBadgeText: { fontSize: 7, fontWeight: '800', color: '#fff' },
+  absoluteCancelBtn: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#ff4d4f',
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  absoluteCancelText: { color: '#fff', fontSize: 12, fontWeight: '900', marginTop: -1 },
 
   nodeName: { fontSize: 8, fontWeight: '700', color: Colors.text.primary, textAlign: 'center' },
   nodeSales: { fontSize: 7, fontWeight: '600', color: Colors.primary, marginTop: 1 },
