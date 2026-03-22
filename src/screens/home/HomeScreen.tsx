@@ -3,18 +3,19 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '../../components/Card';
-import { CurrencyText, formatVND } from '../../components/CurrencyText';
+import { CurrencyText } from '../../components/CurrencyText';
 import { OrderStatusBadge, UserStatusBadge } from '../../components/Badge';
 import { Colors } from '../../constants/colors';
 import { FontSize } from '../../constants/typography';
 import { Spacing, Radius } from '../../constants/spacing';
 import { UserRankLabel } from '../../constants/enums';
 import { useAppStore, type Order as StoreOrder } from '../../store/useAppStore';
+import { FlashList } from '@shopify/flash-list';
+
 
 const PACKAGE_NAMES: Record<string, string> = {
   '1': 'CTV Tiêu dùng',
@@ -74,74 +75,87 @@ const HomeScreen = () => {
 
   const rankKey = (networkNode?.rank ?? 'CTV') as keyof typeof UserRankLabel;
 
+
+  const renderHeader = () => (
+    <View style={styles.headerWrapper}>
+      {/* Header / Greeting */}
+      <View style={styles.header}>
+        <View style={styles.headerGradient}>
+          <View style={styles.headerTop}>
+            <View>
+              <Text style={styles.greeting}>Xin chào 👋</Text>
+              <Text style={styles.userName}>{profile.full_name}</Text>
+              <Text style={styles.rankText}>{UserRankLabel[rankKey] ?? rankKey}</Text>
+            </View>
+            <UserStatusBadge status={profile.status as any} />
+          </View>
+          <Text style={styles.referralLabel}>Mã giới thiệu của bạn</Text>
+          <View style={styles.referralBox}>
+            <Text style={styles.referralCode}>{(profile.full_name ?? '').toUpperCase()}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Wallet Cards */}
+      <Text style={styles.sectionTitle}>Số dư ví</Text>
+      <View style={styles.statRow}>
+        <StatCard label="💰 Ví Điểm Thưởng" amount={rewardWallet} />
+        <StatCard label="💸 Ví Hoa Hồng" amount={commissionWallet} accent />
+      </View>
+
+      {/* Sales stats */}
+      <Text style={styles.sectionTitle}>Doanh số</Text>
+      <Card style={styles.salesCard}>
+        <View style={styles.salesRow}>
+          <View style={styles.salesItem}>
+            <Text style={styles.salesLabel}>Tháng này</Text>
+            <CurrencyText amount={thisMonthSales} size="lg" color={Colors.success} />
+          </View>
+          <View style={styles.salesDivider} />
+          <View style={styles.salesItem}>
+            <Text style={styles.salesLabel}>Tích lũy</Text>
+            <CurrencyText amount={totalSales} size="lg" color={Colors.primary} />
+          </View>
+        </View>
+        <View style={styles.progressRow}>
+          <Text style={styles.progressLabel}>Tiến độ lên TĐL 3 (48 triệu)</Text>
+          <Text style={styles.progressPct}>{Math.min(100, Math.floor((totalSales / 48000000) * 100))}%</Text>
+        </View>
+        <View style={styles.progressBg}>
+          <View style={[styles.progressFill, { width: `${Math.min(100, Math.floor((totalSales / 48000000) * 100))}%` }]} />
+        </View>
+      </Card>
+
+      {/* Recent Orders */}
+      <Text style={[styles.sectionTitle, { marginBottom: Spacing.md }]}>Đơn hàng gần đây</Text>
+      <View style={styles.cardTopBorder} />
+    </View>
+  );
+
+  const recentOrders = orders.slice(0, 5);
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Header / Greeting */}
-        <View style={styles.header}>
-          <View style={styles.headerGradient}>
-            <View style={styles.headerTop}>
-              <View>
-                <Text style={styles.greeting}>Xin chào 👋</Text>
-                <Text style={styles.userName}>{profile.full_name}</Text>
-                <Text style={styles.rankText}>{UserRankLabel[rankKey] ?? rankKey}</Text>
-              </View>
-              <UserStatusBadge status={profile.status as any} />
-            </View>
-            <Text style={styles.referralLabel}>Mã giới thiệu của bạn</Text>
-            <View style={styles.referralBox}>
-              <Text style={styles.referralCode}>{(profile.full_name ?? '').toUpperCase()}</Text>
-            </View>
+      <FlashList
+        data={recentOrders}
+        renderItem={({ item }) => (
+          <View style={styles.orderRowWrapper}>
+            <OrderRow item={item as StoreOrder} />
           </View>
-        </View>
-
-        {/* Wallet Cards */}
-        <Text style={styles.sectionTitle}>Số dư ví</Text>
-        <View style={styles.statRow}>
-          <StatCard label="💰 Ví Điểm Thưởng" amount={rewardWallet} />
-          <StatCard label="💸 Ví Hoa Hồng" amount={commissionWallet} accent />
-        </View>
-
-        {/* Sales stats */}
-        <Text style={styles.sectionTitle}>Doanh số</Text>
-        <Card style={styles.salesCard}>
-          <View style={styles.salesRow}>
-            <View style={styles.salesItem}>
-              <Text style={styles.salesLabel}>Tháng này</Text>
-              <CurrencyText amount={thisMonthSales} size="lg" color={Colors.success} />
-            </View>
-            <View style={styles.salesDivider} />
-            <View style={styles.salesItem}>
-              <Text style={styles.salesLabel}>Tích lũy</Text>
-              <CurrencyText amount={totalSales} size="lg" color={Colors.primary} />
-            </View>
+        )}
+        keyExtractor={(item) => (item as StoreOrder).id}
+        estimatedItemSize={76}
+        ListHeaderComponent={renderHeader}
+        ListFooterComponent={<View style={styles.cardBottomBorder} />}
+        ListEmptyComponent={
+          <View style={[styles.orderRowWrapper, styles.emptyBox]}>
+            <Text style={styles.emptyText}>Chưa có đơn hàng nào</Text>
           </View>
-          <View style={styles.progressRow}>
-            <Text style={styles.progressLabel}>Tiến độ lên TĐL 3 (48 triệu)</Text>
-            <Text style={styles.progressPct}>{Math.min(100, Math.floor((totalSales / 48000000) * 100))}%</Text>
-          </View>
-          <View style={styles.progressBg}>
-            <View style={[styles.progressFill, { width: `${Math.min(100, Math.floor((totalSales / 48000000) * 100))}%` }]} />
-          </View>
-        </Card>
-
-        {/* Recent Orders */}
-        <Text style={styles.sectionTitle}>Đơn hàng gần đây</Text>
-        <Card noPadding>
-          {orders.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyText}>Chưa có đơn hàng nào</Text>
-            </View>
-          ) : (
-            orders.slice(0, 5).map((order, idx) => (
-              <React.Fragment key={order.id}>
-                <OrderRow item={order} />
-                {idx < Math.min(orders.length, 5) - 1 && <View style={styles.divider} />}
-              </React.Fragment>
-            ))
-          )}
-        </Card>
-      </ScrollView>
+        }
+        ItemSeparatorComponent={() => <View style={styles.orderRowWrapper}><View style={styles.divider} /></View>}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+      />
     </SafeAreaView>
   );
 };
@@ -187,6 +201,11 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: Colors.border, marginHorizontal: Spacing.lg },
   emptyBox: { padding: Spacing.xl, alignItems: 'center' },
   emptyText: { fontSize: FontSize.sm, color: Colors.text.tertiary },
+  headerWrapper: { paddingBottom: Spacing.xs },
+  cardTopBorder: { backgroundColor: Colors.surface, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, height: Spacing.md, marginHorizontal: Spacing.lg },
+  cardBottomBorder: { backgroundColor: Colors.surface, borderBottomLeftRadius: Radius.lg, borderBottomRightRadius: Radius.lg, height: Spacing.lg, marginHorizontal: Spacing.lg },
+  orderRowWrapper: { backgroundColor: Colors.surface, marginHorizontal: Spacing.lg },
+  listContent: { paddingBottom: Spacing.xxxl },
 });
 
 export default HomeScreen;

@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Pressable,
   Alert,
   TextInput,
@@ -18,6 +17,7 @@ import { FontSize } from '../../constants/typography';
 import { Spacing, Radius } from '../../constants/spacing';
 import { useAppStore, type Transaction } from '../../store/useAppStore';
 import { supabase } from '../../lib/supabase';
+import { FlashList } from '@shopify/flash-list';
 
 const txTypeIcon: Record<string, string> = {
   COMMISSION: '💸', REWARD: '🎁', WITHDRAW: '🏦', PURCHASE: '🛍️',
@@ -111,87 +111,94 @@ const WalletScreen = () => {
     );
   }
 
+  const renderHeader = () => (
+    <View style={styles.headerWrapper}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Ví tiền</Text>
+        <Text style={styles.subtitle}>Quản lý số dư và giao dịch</Text>
+      </View>
+
+      <View style={styles.walletCards}>
+        <Card style={styles.walletCard} elevated>
+          <Text style={styles.walletLabel}>💰 Ví Điểm Thưởng</Text>
+          <CurrencyText amount={rewardWallet} size="xl" color={Colors.primary} />
+          <Text style={styles.walletNote}>Dùng để mua hàng trên App</Text>
+        </Card>
+        <Card style={[styles.walletCard, styles.commissionCard]} elevated>
+          <Text style={[styles.walletLabel, styles.walletLabelInverse]}>💸 Ví Hoa Hồng</Text>
+          <CurrencyText amount={commissionWallet} size="xl" color={Colors.accent} />
+          <Text style={[styles.walletNote, styles.walletNoteInverse]}>Rút về ngân hàng</Text>
+        </Card>
+      </View>
+
+      <Card style={styles.withdrawCard}>
+        <Text style={styles.cardTitle}>Rút tiền</Text>
+        <Text style={styles.withdrawNote}>Tối thiểu 100.000đ · Chờ Admin duyệt</Text>
+        
+        <View style={styles.bankFields}>
+          <TextInput style={styles.withdrawInput} value={bankName} onChangeText={setBankName} placeholder="Tên Ngân Hàng (VD: Vietcombank)" placeholderTextColor={Colors.text.tertiary} />
+          <TextInput style={styles.withdrawInput} value={bankAccount} onChangeText={setBankAccount} placeholder="Số tài khoản" keyboardType="numeric" placeholderTextColor={Colors.text.tertiary} />
+          <TextInput style={styles.withdrawInput} value={bankOwner} onChangeText={setBankOwner} placeholder="Tên chủ tài khoản (Không Dấu)" autoCapitalize="characters" placeholderTextColor={Colors.text.tertiary} />
+        </View>
+
+        <View style={styles.withdrawRow}>
+          <TextInput
+            style={[styles.withdrawInput, { flex: 1, marginBottom: 0 }]}
+            value={withdrawAmt}
+            onChangeText={setWithdrawAmt}
+            placeholder="Số tiền muốn rút"
+            keyboardType="numeric"
+            placeholderTextColor={Colors.text.tertiary}
+          />
+          <Button
+            title={withdrawLoading ? '...' : 'Rút'}
+            onPress={handleWithdraw}
+            loading={withdrawLoading}
+            variant="accent"
+            size="sm"
+            style={styles.withdrawBtn}
+          />
+        </View>
+      </Card>
+
+      <View style={styles.txSectionHeader}>
+        <Text style={styles.cardTitle}>Lịch sử giao dịch</Text>
+        <View style={styles.tabs}>
+          {(['ALL', 'COMMISSION', 'REWARD'] as const).map(tab => (
+            <Pressable key={tab} onPress={() => setActiveTab(tab)} style={[styles.tab, activeTab === tab && styles.tabActive]}>
+              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                {tab === 'ALL' ? 'Tất cả' : tab === 'COMMISSION' ? 'Hoa hồng' : 'Điểm thưởng'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+      <View style={styles.cardTopBorder} />
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Ví tiền</Text>
-          <Text style={styles.subtitle}>Quản lý số dư và giao dịch</Text>
-        </View>
-
-        {/* Wallet Cards */}
-        <View style={styles.walletCards}>
-          <Card style={styles.walletCard} elevated>
-            <Text style={styles.walletLabel}>💰 Ví Điểm Thưởng</Text>
-            <CurrencyText amount={rewardWallet} size="xl" color={Colors.primary} />
-            <Text style={styles.walletNote}>Dùng để mua hàng trên App</Text>
-          </Card>
-          <Card style={[styles.walletCard, styles.commissionCard]} elevated>
-            <Text style={[styles.walletLabel, styles.walletLabelInverse]}>💸 Ví Hoa Hồng</Text>
-            <CurrencyText amount={commissionWallet} size="xl" color={Colors.accent} />
-            <Text style={[styles.walletNote, styles.walletNoteInverse]}>Rút về ngân hàng</Text>
-          </Card>
-        </View>
-
-        {/* Withdraw */}
-        <Card style={styles.withdrawCard}>
-          <Text style={styles.cardTitle}>Rút tiền</Text>
-          <Text style={styles.withdrawNote}>Tối thiểu 100.000đ · Chờ Admin duyệt</Text>
-          
-          <View style={styles.bankFields}>
-            <TextInput style={styles.withdrawInput} value={bankName} onChangeText={setBankName} placeholder="Tên Ngân Hàng (VD: Vietcombank)" placeholderTextColor={Colors.text.tertiary} />
-            <TextInput style={styles.withdrawInput} value={bankAccount} onChangeText={setBankAccount} placeholder="Số tài khoản" keyboardType="numeric" placeholderTextColor={Colors.text.tertiary} />
-            <TextInput style={styles.withdrawInput} value={bankOwner} onChangeText={setBankOwner} placeholder="Tên chủ tài khoản (Không Dấu)" autoCapitalize="characters" placeholderTextColor={Colors.text.tertiary} />
+      <FlashList
+        data={filtered}
+        renderItem={({ item }) => (
+          <View style={styles.txRowWrapper}>
+            <TransactionRow item={item as Transaction} />
           </View>
-
-          <View style={styles.withdrawRow}>
-            <TextInput
-              style={[styles.withdrawInput, { flex: 1, marginBottom: 0 }]}
-              value={withdrawAmt}
-              onChangeText={setWithdrawAmt}
-              placeholder="Số tiền muốn rút"
-              keyboardType="numeric"
-              placeholderTextColor={Colors.text.tertiary}
-            />
-            <Button
-              title={withdrawLoading ? '...' : 'Rút'}
-              onPress={handleWithdraw}
-              loading={withdrawLoading}
-              variant="accent"
-              size="sm"
-              style={styles.withdrawBtn}
-            />
+        )}
+        keyExtractor={(item) => (item as Transaction).id}
+        estimatedItemSize={76}
+        ListHeaderComponent={renderHeader}
+        ListFooterComponent={<View style={styles.cardBottomBorder} />}
+        ListEmptyComponent={
+          <View style={[styles.txRowWrapper, styles.emptyBox]}>
+            <Text style={styles.emptyText}>Chưa có giao dịch nào</Text>
           </View>
-        </Card>
-
-        {/* Transactions */}
-        <View style={styles.txSection}>
-          <Text style={styles.cardTitle}>Lịch sử giao dịch</Text>
-          <View style={styles.tabs}>
-            {(['ALL', 'COMMISSION', 'REWARD'] as const).map(tab => (
-              <Pressable key={tab} onPress={() => setActiveTab(tab)} style={[styles.tab, activeTab === tab && styles.tabActive]}>
-                <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-                  {tab === 'ALL' ? 'Tất cả' : tab === 'COMMISSION' ? 'Hoa hồng' : 'Điểm thưởng'}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          <Card noPadding>
-            {filtered.length === 0 ? (
-              <View style={styles.emptyBox}>
-                <Text style={styles.emptyText}>Chưa có giao dịch nào</Text>
-              </View>
-            ) : (
-              filtered.map((tx, idx) => (
-                <React.Fragment key={tx.id}>
-                  <TransactionRow item={tx} />
-                  {idx < filtered.length - 1 && <View style={styles.divider} />}
-                </React.Fragment>
-              ))
-            )}
-          </Card>
-        </View>
-      </ScrollView>
+        }
+        ItemSeparatorComponent={() => <View style={styles.txRowWrapper}><View style={styles.divider} /></View>}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+      />
     </SafeAreaView>
   );
 };
@@ -226,12 +233,17 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
   },
   withdrawBtn: { minWidth: 72 },
-  txSection: { marginBottom: Spacing.xl },
-  tabs: { flexDirection: 'row', gap: Spacing.xs, marginBottom: Spacing.md },
+  txSectionHeader: { marginBottom: Spacing.md },
+  tabs: { flexDirection: 'row', gap: Spacing.xs, marginTop: Spacing.sm },
   tab: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderRadius: Radius.full, backgroundColor: Colors.surfaceElevated },
   tabActive: { backgroundColor: Colors.primary },
   tabText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.text.secondary },
   tabTextActive: { color: '#fff' },
+  headerWrapper: { paddingBottom: Spacing.xs },
+  cardTopBorder: { backgroundColor: Colors.surface, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, height: Spacing.md },
+  cardBottomBorder: { backgroundColor: Colors.surface, borderBottomLeftRadius: Radius.lg, borderBottomRightRadius: Radius.lg, height: Spacing.lg },
+  txRowWrapper: { backgroundColor: Colors.surface },
+  listContent: { padding: Spacing.lg, paddingBottom: Spacing.xxxl },
   txRow: { flexDirection: 'row', alignItems: 'center', padding: Spacing.lg, gap: Spacing.md },
   txIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
   txInfo: { flex: 1 },
