@@ -287,7 +287,7 @@ const ShopScreen = () => {
                   keyboardType="phone-pad"
                 />
 
-                <Text style={styles.inputLabel}>Địa chỉ chi tiết (Chuẩn VN)</Text>
+                <Text style={styles.inputLabel}>Địa chỉ nhận hàng</Text>
                 <VNAddressPicker 
                   onAddressChange={setAddress} 
                   initialAddress={address}

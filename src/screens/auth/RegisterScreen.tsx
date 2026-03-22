@@ -312,7 +312,7 @@ const RegisterScreen = () => {
                 </View>
                 {!pickupAtWarehouse && (
                   <View style={{ marginTop: Spacing.md }}>
-                    <Text style={styles.inputLabel}>Địa chỉ giao hàng (Chuẩn VN)</Text>
+                    <Text style={styles.inputLabel}>Địa chỉ giao hàng</Text>
                     <VNAddressPicker 
                       onAddressChange={setAddress} 
                       initialAddress={address}
