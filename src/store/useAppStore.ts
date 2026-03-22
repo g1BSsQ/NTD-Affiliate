@@ -82,6 +82,7 @@ interface AppState {
   fetchNetworkNode: () => Promise<void>;
   fetchSubordinates: () => Promise<void>;
   createOrder: (packageId: string, boxes: number, totalPrice: number, receiptUrl: string, pointsUsed: number, shippingAddress?: string, deliveryMethod?: string, shippingName?: string, shippingPhone?: string) => Promise<void>;
+  uploadOrderReceipt: (orderId: string, receiptUrl: string) => Promise<void>;
   fetchAll: () => Promise<void>;
 
   reset: () => void;
@@ -219,6 +220,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       }])
       .select()
       .single();
+    if (error) throw error;
+    await get().fetchOrders();
+  },
+
+  uploadOrderReceipt: async (orderId, receiptUrl) => {
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        receipt_url: receiptUrl,
+        status: 'PENDING_ADMIN'
+      })
+      .eq('id', orderId);
     if (error) throw error;
     await get().fetchOrders();
   },
