@@ -216,6 +216,12 @@ const NetworkScreen = () => {
             <View style={[styles.nodeAvatar, node.isDraft && styles.draftAvatar]}>
               <Text style={styles.nodeAvatarText}>{node.full_name.charAt(0)}</Text>
             </View>
+            <Text style={styles.nodeName} numberOfLines={1}>{node.full_name}</Text>
+            
+            {!node.isDraft && (
+              <Text style={styles.nodeSales}>{formatVND(node.total_sales || 0)}</Text>
+            )}
+
             <Text style={styles.nodePos}>{pos === 'LEFT' ? 'Trái' : 'Phải'}</Text>
 
             {node.isDraft && (
@@ -334,25 +340,7 @@ const NetworkScreen = () => {
             )}
           </View>
 
-          {/* F1 List */}
-          <View style={styles.subListHeader}>
-            <Text style={styles.treeTitle}>Danh sách F1 (Trực tiếp)</Text>
-            <Text style={styles.subCount}>{subordinates.length} người</Text>
-          </View>
-
-          {subordinates.map((sub: any) => (
-            <Card key={sub.user_id} style={styles.subCard}>
-              <View style={styles.subRow}>
-                <View style={[styles.posBadge, sub.position === 'LEFT' ? styles.posLeft : styles.posRight]}>
-                  <Text style={styles.posText}>{sub.position === 'LEFT' ? 'T' : (sub.position === 'RIGHT' ? 'P' : '?')}</Text>
-                </View>
-                <View style={styles.subInfo}>
-                  <Text style={styles.subName}>{sub.full_name}</Text>
-                  <Text style={styles.subSales}>Doanh số: {formatVND(sub.total_sales)}</Text>
-                </View>
-              </View>
-            </Card>
-          ))}
+          {/* F1 List removed as requested, all info now in tree */}
         </ScrollView>
 
         {/* Placement Confirmation Modal */}
@@ -429,7 +417,7 @@ const styles = StyleSheet.create({
   
   treeBranch: { alignItems: 'center' },
   nodeWrapper: { alignItems: 'center' },
-  nodeContainer: { width: 90, padding: Spacing.xs, backgroundColor: '#fff', borderRadius: Radius.md, alignItems: 'center', borderWidth: 1, borderColor: Colors.border, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+  nodeContainer: { width: 100, padding: 6, backgroundColor: '#fff', borderRadius: Radius.md, alignItems: 'center', borderWidth: 1, borderColor: Colors.border, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
   rootNode: { borderColor: Colors.primary, borderWidth: 2 },
   draftNode: { borderStyle: 'dashed', opacity: 0.8, borderColor: Colors.warning },
   
@@ -439,8 +427,9 @@ const styles = StyleSheet.create({
   nodeAvatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
   draftAvatar: { backgroundColor: Colors.warning },
   nodeAvatarText: { color: '#fff', fontWeight: '800', fontSize: 10 },
-  nodeName: { fontSize: 9, fontWeight: '700', color: Colors.text.primary, textAlign: 'center' },
-  nodePos: { fontSize: 7, color: Colors.text.tertiary, marginTop: 1 },
+  nodeName: { fontSize: 8, fontWeight: '700', color: Colors.text.primary, textAlign: 'center' },
+  nodeSales: { fontSize: 7, fontWeight: '600', color: Colors.primary, marginTop: 1 },
+  nodePos: { fontSize: 6, color: Colors.text.tertiary, marginTop: 1 },
   
   cancelDraftBtn: { marginTop: 4, width: '100%', borderTopWidth: 1, borderTopColor: '#f0f0f0', paddingTop: 2 },
   cancelDraftText: { fontSize: 8, color: Colors.danger, fontWeight: '800', textAlign: 'center' },
