@@ -47,7 +47,7 @@ export const UserStatusBadge: React.FC<{ status: UserStatus }> = ({ status }) =>
 export const OrderStatusBadge: React.FC<{ status: OrderStatus | string }> = ({ status }) => {
   const map: Record<string, { label: string; variant: BadgeVariant }> = {
     [OrderStatus.WAITING_PAYMENT]: { label: 'Chờ thanh toán', variant: 'warning' },
-    [OrderStatus.PENDING_ADMIN]: { label: 'Chờ thanh toán', variant: 'info' },
+    [OrderStatus.PENDING_ADMIN]: { label: 'Đang chờ duyệt', variant: 'info' },
     [OrderStatus.COMPLETED]: { label: 'Hoàn thành', variant: 'success' },
     [OrderStatus.REJECTED]: { label: 'Từ chối', variant: 'danger' },
   };

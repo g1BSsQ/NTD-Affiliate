@@ -101,7 +101,11 @@ const ShopScreen = () => {
         shippingName || profile?.full_name || '',
         shippingPhone || profile?.phone || ''
       );
-      Alert.alert('Thành công!', 'Đơn hàng của bạn đã được gửi và đang chờ xác nhận.');
+      Alert.alert(
+        'Thành công',
+        'Đơn hàng đã được tạo và đang ở trạng thái "Đang chờ duyệt".\n\nBạn có thể theo dõi tiến độ tại phần "Đơn hàng gần đây" ở Trang chủ.',
+        [{ text: 'Đồng ý' }]
+      );
       setStep('shop');
       setSelected(null);
       setReceipt(null);
