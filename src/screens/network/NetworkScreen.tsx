@@ -44,6 +44,7 @@ const NetworkScreen = () => {
     fetchBinaryTree,
     fetchUnplacedMembers,
     fetchPlacementRequests,
+    cancelPlacementRequest,
     submitPlacementRequest,
     fetchAll 
   } = useAppStore();
@@ -135,6 +136,7 @@ const NetworkScreen = () => {
       const member = unplacedMembers.find(m => m.user_id === req.member_id);
       
       map[req.parent_id][req.position] = {
+        id: req.id, // Store request ID for cancellation
         user_id: req.member_id,
         full_name: member?.full_name || 'Hội viên mới',
         node_position: req.position,
@@ -214,8 +216,16 @@ const NetworkScreen = () => {
             <View style={[styles.nodeAvatar, node.isDraft && styles.draftAvatar]}>
               <Text style={styles.nodeAvatarText}>{node.full_name.charAt(0)}</Text>
             </View>
-            <Text style={styles.nodeName} numberOfLines={1}>{node.full_name}</Text>
             <Text style={styles.nodePos}>{pos === 'LEFT' ? 'Trái' : 'Phải'}</Text>
+
+            {node.isDraft && (
+              <TouchableOpacity 
+                style={styles.cancelDraftBtn} 
+                onPress={() => cancelPlacementRequest(node.id)}
+              >
+                <Text style={styles.cancelDraftText}>Hủy</Text>
+              </TouchableOpacity>
+            )}
           </TouchableOpacity>
           
           <View style={styles.connectorLine} />
@@ -431,6 +441,9 @@ const styles = StyleSheet.create({
   nodeAvatarText: { color: '#fff', fontWeight: '800', fontSize: 10 },
   nodeName: { fontSize: 9, fontWeight: '700', color: Colors.text.primary, textAlign: 'center' },
   nodePos: { fontSize: 7, color: Colors.text.tertiary, marginTop: 1 },
+  
+  cancelDraftBtn: { marginTop: 4, width: '100%', borderTopWidth: 1, borderTopColor: '#f0f0f0', paddingTop: 2 },
+  cancelDraftText: { fontSize: 8, color: Colors.danger, fontWeight: '800', textAlign: 'center' },
   
   emptyNode: { borderStyle: 'dashed', backgroundColor: 'transparent', borderColor: Colors.border, paddingVertical: Spacing.md },
   emptyIcon: { width: 20, height: 20, borderRadius: 10, backgroundColor: Colors.border, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },

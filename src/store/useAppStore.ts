@@ -113,6 +113,7 @@ interface AppState {
   fetchBinaryTree: () => Promise<void>;
   fetchUnplacedMembers: () => Promise<void>;
   fetchPlacementRequests: () => Promise<void>;
+  cancelPlacementRequest: (requestId: string) => Promise<void>;
   submitPlacementRequest: (memberId: string, parentId: string, position: 'LEFT' | 'RIGHT') => Promise<void>;
   createOrder: (packageId: string, boxes: number, totalPrice: number, receiptUrl: string, pointsUsed: number, shippingAddress?: string, deliveryMethod?: string, shippingName?: string, shippingPhone?: string) => Promise<void>;
   uploadOrderReceipt: (orderId: string, receiptUrl: string) => Promise<void>;
@@ -280,19 +281,45 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch (e) { console.warn('fetchPlacementRequests failed:', e); }
   },
 
+  cancelPlacementRequest: async (requestId) => {
+    try {
+      const { error } = await supabase.from('placement_requests').delete().eq('id', requestId);
+      if (error) throw error;
+      await get().fetchPlacementRequests();
+    } catch (e) { console.warn('cancelPlacementRequest failed:', e); }
+  },
+
   submitPlacementRequest: async (memberId, parentId, position) => {
-    const { profile } = get();
-    if (!profile) return;
-    const { error } = await supabase
-      .from('placement_requests')
-      .insert([{
-        sponsor_id: profile.id,
+    try {
+      const { profile: user } = get();
+      if (!user) return;
+
+      // 1. Check if there's already a pending request for this member
+      const { data: existing } = await supabase
+        .from('placement_requests')
+        .select('id')
+        .eq('member_id', memberId)
+        .eq('status', 'PENDING');
+
+      if (existing && existing.length > 0) {
+        // Delete the old pending request so the new one can replace it
+        await supabase.from('placement_requests').delete().eq('id', existing[0].id);
+      }
+
+      // 2. Submit the new request
+      const { error } = await supabase.from('placement_requests').insert([{
+        sponsor_id: user.id,
         member_id: memberId,
         parent_id: parentId,
-        position
+        position: position,
+        status: 'PENDING'
       }]);
-    if (error) throw error;
-    await get().fetchPlacementRequests();
+      if (error) throw error;
+      await get().fetchPlacementRequests();
+    } catch (e: any) {
+      console.warn('submitPlacementRequest failed:', e);
+      throw e;
+    }
   },
 
   fetchBinaryTree: async () => {
