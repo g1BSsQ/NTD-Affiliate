@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { decode } from 'base64-arraybuffer';
 import {
   View,
   Text,
@@ -51,10 +52,13 @@ const RegisterScreen = () => {
 
   // Step 3
   const [receiptUri, setReceiptUri] = useState<string | null>(null);
+  const [receiptBase64, setReceiptBase64] = useState<string | undefined>();
 
   // Step 4
   const [cccdFrontUri, setCccdFrontUri] = useState<string | null>(null);
+  const [cccdFrontBase64, setCccdFrontBase64] = useState<string | undefined>();
   const [cccdBackUri, setCccdBackUri] = useState<string | null>(null);
+  const [cccdBackBase64, setCccdBackBase64] = useState<string | undefined>();
 
   const [loading, setLoading] = useState(false);
 
@@ -129,29 +133,30 @@ const RegisterScreen = () => {
     setStep(s => Math.max(s - 1, 1));
   };
 
-  const pickImage = async (setter: (uri: string) => void) => {
-    const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8, maxWidth: 1920, maxHeight: 1920 });
-    if (result.assets?.[0]?.uri) setter(result.assets[0].uri);
+  const pickImage = async (setterUri: (uri: string) => void, setterBase64: (base64: string) => void) => {
+    const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8, maxWidth: 1920, maxHeight: 1920, includeBase64: true });
+    if (result.assets?.[0]?.uri) {
+      setterUri(result.assets[0].uri);
+      if (result.assets[0].base64) setterBase64(result.assets[0].base64);
+    }
   };
 
-  const uploadImage = async (uri: string, bucket: string, prefix: string) => {
+  const uploadImage = async (uri: string, base64Data: string | undefined, bucket: string, prefix: string) => {
     try {
       const ext = uri.substring(uri.lastIndexOf('.') + 1) || 'jpg';
       const safeExt = ext.toLowerCase() === 'jpg' ? 'jpeg' : ext.toLowerCase();
       const fileName = `${prefix}_${Date.now()}.${safeExt}`;
       const filePath = `${email.trim().toLowerCase()}/${fileName}`;
 
-      const formData = new FormData();
-      formData.append('file', {
-        uri: Platform.OS === 'ios' ? uri.replace('file://', '') : uri,
-        type: `image/${safeExt}`,
-        name: fileName,
-      } as any);
+      if (!base64Data) throw new Error('Không thể đọc dữ liệu ảnh (base64).');
 
-      // In React Native, FormData is supported directly by Supabase Storage
+      const arrayBuffer = decode(base64Data);
+
       const { data, error } = await supabase.storage
         .from(bucket)
-        .upload(filePath, formData);
+        .upload(filePath, arrayBuffer, {
+          contentType: `image/${safeExt}`,
+        });
 
       if (error) throw error;
 
@@ -177,9 +182,9 @@ const RegisterScreen = () => {
 
     try {
       // 1. Upload Images
-      const uploadedReceipt = await uploadImage(receiptUri, 'receipts', 'receipt');
-      const uploadedCccdFront = await uploadImage(cccdFrontUri, 'cccds', 'cccd_front');
-      const uploadedCccdBack = await uploadImage(cccdBackUri, 'cccds', 'cccd_back');
+      const uploadedReceipt = await uploadImage(receiptUri, receiptBase64, 'receipts', 'receipt');
+      const uploadedCccdFront = await uploadImage(cccdFrontUri, cccdFrontBase64, 'cccds', 'cccd_front');
+      const uploadedCccdBack = await uploadImage(cccdBackUri, cccdBackBase64, 'cccds', 'cccd_back');
 
       // 2. Sign Up
       const { data, error: signUpError } = await supabase.auth.signUp({
@@ -336,7 +341,7 @@ const RegisterScreen = () => {
               </View>
 
               <Text style={styles.sectionLabel}>Upload biên lai chuyển khoản</Text>
-              <Pressable style={styles.uploadBox} onPress={() => pickImage(setReceiptUri)}>
+              <Pressable style={styles.uploadBox} onPress={() => pickImage(setReceiptUri, setReceiptBase64)}>
                 {receiptUri ? (
                   <Image source={{ uri: receiptUri }} style={styles.previewImage} resizeMode="cover" />
                 ) : (
@@ -365,12 +370,12 @@ const RegisterScreen = () => {
               </Text>
 
               {[
-                { label: 'Mặt trước CCCD', uri: cccdFrontUri, setter: setCccdFrontUri },
-                { label: 'Mặt sau CCCD', uri: cccdBackUri, setter: setCccdBackUri },
-              ].map(({ label, uri, setter }) => (
+                { label: 'Mặt trước CCCD', uri: cccdFrontUri, setterUri: setCccdFrontUri, setterBase64: setCccdFrontBase64 },
+                { label: 'Mặt sau CCCD', uri: cccdBackUri, setterUri: setCccdBackUri, setterBase64: setCccdBackBase64 },
+              ].map(({ label, uri, setterUri, setterBase64 }) => (
                 <View key={label} style={styles.cccdSection}>
                   <Text style={styles.sectionLabel}>{label}</Text>
-                  <Pressable style={styles.uploadBox} onPress={() => pickImage(setter)}>
+                  <Pressable style={styles.uploadBox} onPress={() => pickImage(setterUri, setterBase64)}>
                     {uri ? (
                       <Image source={{ uri }} style={styles.previewImage} resizeMode="cover" />
                     ) : (
@@ -382,7 +387,7 @@ const RegisterScreen = () => {
                     )}
                   </Pressable>
                   {uri && (
-                    <Pressable onPress={() => setter('')} style={styles.removeBtn}>
+                    <Pressable onPress={() => { setterUri(''); setterBase64(''); }} style={styles.removeBtn}>
                       <Text style={styles.removeBtnText}>✕ Xóa ảnh</Text>
                     </Pressable>
                   )}
