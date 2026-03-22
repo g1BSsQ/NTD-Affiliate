@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,22 +7,100 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  TouchableOpacity,
+  Modal,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { 
+  PanGestureHandler, 
+  PinchGestureHandler, 
+  State, 
+  GestureHandlerRootView 
+} from 'react-native-gesture-handler';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { CurrencyText, formatVND } from '../../components/CurrencyText';
-import { UserStatusBadge } from '../../components/Badge';
 import { Colors } from '../../constants/colors';
 import { FontSize } from '../../constants/typography';
 import { Spacing, Radius } from '../../constants/spacing';
-import { UserRankLabel } from '../../constants/enums';
-import { useAppStore } from '../../store/useAppStore';
+import { useAppStore, BinaryTreeNode, UnplacedMember, PlacementRequest } from '../../store/useAppStore';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const NetworkScreen = () => {
-  const { profile, networkNode, subordinates, loading, fetchProfile, fetchNetworkNode, fetchSubordinates, fetchAll } = useAppStore();
-  const [refreshing, setRefreshing] = React.useState(false);
+  const { 
+    profile, 
+    networkNode, 
+    subordinates, 
+    binaryTree,
+    unplacedMembers,
+    placementRequests,
+    loading, 
+    fetchProfile, 
+    fetchNetworkNode, 
+    fetchSubordinates, 
+    fetchBinaryTree,
+    fetchUnplacedMembers,
+    fetchPlacementRequests,
+    submitPlacementRequest,
+    fetchAll 
+  } = useAppStore();
 
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<{ parentId: string, position: 'LEFT' | 'RIGHT' } | null>(null);
+  const [memberToPlace, setMemberToPlace] = useState<UnplacedMember | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [viewRootId, setViewRootId] = useState<string | null>(null);
+
+  // --- Zoom & Pan Logic (Simplified with Animated) ---
+  const scale = useRef(new Animated.Value(1)).current;
+  const translateX = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+  const lastScale = useRef(1);
+  const lastOffset = useRef({ x: 0, y: 0 });
+
+  const onPinchEvent = Animated.event([{ nativeEvent: { scale: scale } }], { useNativeDriver: true });
+  const onPanEvent = Animated.event(
+    [{ nativeEvent: { translationX: translateX, translationY: translateY } }],
+    { useNativeDriver: true }
+  );
+
+  const onPinchStateChange = (event: any) => {
+    if (event.nativeEvent.oldState === State.ACTIVE) {
+      lastScale.current *= event.nativeEvent.scale;
+      // Clamp scale
+      if (lastScale.current < 0.5) lastScale.current = 0.5;
+      if (lastScale.current > 2) lastScale.current = 2;
+      scale.setValue(lastScale.current);
+    }
+  };
+
+  const onPanStateChange = (event: any) => {
+    if (event.nativeEvent.oldState === State.ACTIVE) {
+      lastOffset.current.x += event.nativeEvent.translationX;
+      lastOffset.current.y += event.nativeEvent.translationY;
+      translateX.setOffset(lastOffset.current.x);
+      translateX.setValue(0);
+      translateY.setOffset(lastOffset.current.y);
+      translateY.setValue(0);
+    }
+  };
+
+  const resetZoom = () => {
+    lastScale.current = 1;
+    lastOffset.current = { x: 0, y: 0 };
+    Animated.parallel([
+      Animated.spring(scale, { toValue: 1, useNativeDriver: true }),
+      Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
+      Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
+    ]).start();
+    translateX.setOffset(0);
+    translateY.setOffset(0);
+  };
+
+  // --- Data Fetching ---
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
     await fetchAll();
@@ -30,14 +108,46 @@ const NetworkScreen = () => {
   }, [fetchAll]);
 
   useEffect(() => {
-    fetchProfile();
-    fetchNetworkNode();
-    fetchSubordinates();
-  }, [fetchProfile, fetchNetworkNode, fetchSubordinates]);
+    fetchAll();
+  }, [fetchAll]);
 
+  useEffect(() => {
+    if (profile && !viewRootId) setViewRootId(profile.id);
+  }, [profile]);
 
+  // Tree Helper: Merge binaryTree and pending placementRequests
+  const treeMap = useMemo(() => {
+    const map: Record<string, { LEFT?: any, RIGHT?: any }> = {};
+    
+    // 1. Official nodes
+    binaryTree.forEach(node => {
+      if (node.parent_id) {
+        if (!map[node.parent_id]) map[node.parent_id] = {};
+        map[node.parent_id][node.node_position as 'LEFT' | 'RIGHT'] = { ...node, isDraft: false };
+      }
+    });
 
-  if (loading || !networkNode || !profile) {
+    // 2. Draft (Pending) nodes
+    placementRequests.filter(r => r.status === 'PENDING').forEach(req => {
+      if (!map[req.parent_id]) map[req.parent_id] = {};
+      
+      // Find the member details from unplacedMembers or common profile knowledge
+      const member = unplacedMembers.find(m => m.user_id === req.member_id);
+      
+      map[req.parent_id][req.position] = {
+        user_id: req.member_id,
+        full_name: member?.full_name || 'Hội viên mới',
+        node_position: req.position,
+        isDraft: true,
+        parent_id: req.parent_id,
+        status: 'PENDING_APPROVAL'
+      };
+    });
+
+    return map;
+  }, [binaryTree, placementRequests, unplacedMembers]);
+
+  if (loading && !refreshing && (!networkNode || !profile)) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.loadingContainer}>
@@ -48,107 +158,233 @@ const NetworkScreen = () => {
     );
   }
 
-  const leftSales = networkNode.left_sales;
-  const rightSales = networkNode.right_sales;
-  const weakBranch = leftSales <= rightSales ? 'left' : 'right';
-  const rankKey = (networkNode.rank ?? 'CTV') as keyof typeof UserRankLabel;
+  if (!networkNode || !profile || !viewRootId) return null;
+
+  const handlePlaceMember = async () => {
+    if (!selectedSlot || !memberToPlace) return;
+    setSubmitting(true);
+    try {
+      await submitPlacementRequest(memberToPlace.user_id, selectedSlot.parentId, selectedSlot.position);
+      Alert.alert('Giao dịch Xem trước', 'Hội viên đã được thêm vào sơ đồ ảo. Vị trí sẽ chính thức sau khi Admin duyệt.');
+      setSelectedSlot(null);
+      setMemberToPlace(null);
+    } catch (e: any) {
+      Alert.alert('Lỗi', e.message || 'Không thể gửi yêu cầu.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const renderNode = (node: any, parentId: string, pos: 'LEFT' | 'RIGHT', depth: number) => {
+    if (depth > 4) return null; // Increased depth for better preview
+
+    if (!node) {
+      return (
+        <TouchableOpacity 
+          style={[styles.nodeContainer, styles.emptyNode]} 
+          onPress={() => setSelectedSlot({ parentId, position: pos })}
+        >
+          <View style={styles.emptyIcon}>
+            <Text style={styles.emptyIconText}>+</Text>
+          </View>
+          <Text style={styles.emptyNodeText}>Trống</Text>
+        </TouchableOpacity>
+      );
+    }
+
+    const children = treeMap[node.user_id] || {};
+    const isRoot = node.user_id === viewRootId;
+
+    return (
+      <View style={styles.treeBranch}>
+        <View style={styles.nodeWrapper}>
+          <TouchableOpacity 
+            style={[
+              styles.nodeContainer, 
+              isRoot && styles.rootNode,
+              node.isDraft && styles.draftNode
+            ]}
+            onPress={() => setViewRootId(node.user_id)}
+          >
+            {node.isDraft && (
+              <View style={styles.draftBadge}>
+                <Text style={styles.draftBadgeText}>Chờ duyệt</Text>
+              </View>
+            )}
+            <View style={[styles.nodeAvatar, node.isDraft && styles.draftAvatar]}>
+              <Text style={styles.nodeAvatarText}>{node.full_name.charAt(0)}</Text>
+            </View>
+            <Text style={styles.nodeName} numberOfLines={1}>{node.full_name}</Text>
+            <Text style={styles.nodePos}>{pos === 'LEFT' ? 'Trái' : 'Phải'}</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.connectorLine} />
+        </View>
+
+        <View style={styles.childrenRow}>
+          <View style={styles.childColumn}>
+             {renderNode(children.LEFT || null, node.user_id, 'LEFT', depth + 1)}
+          </View>
+          <View style={styles.childColumn}>
+             {renderNode(children.RIGHT || null, node.user_id, 'RIGHT', depth + 1)}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const rootNodeItem = binaryTree.find(n => n.user_id === viewRootId) || (viewRootId === profile.id ? { user_id: profile.id, full_name: profile.full_name, isDraft: false } : null);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView 
-        contentContainerStyle={styles.container} 
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} tintColor={Colors.primary} />
-        }
-      >
-        <View style={styles.header}>
-          <Text style={styles.title}>Mạng lưới</Text>
-          <Text style={styles.subtitle}>Cây hệ thống Nhị phân của bạn</Text>
-        </View>
-
-        {/* Binary stats */}
-        <Card style={styles.statsCard}>
-          <Text style={styles.statsTitle}>Doanh số nhánh</Text>
-          <View style={styles.branchRow}>
-            <View style={styles.branchItem}>
-              <View style={[styles.branchDot, weakBranch === 'left' && styles.weakDot]} />
-              <Text style={styles.branchLabel}>Nhánh Trái</Text>
-              <CurrencyText amount={leftSales} size="sm" color={weakBranch === 'left' ? Colors.warning : Colors.success} />
-              {weakBranch === 'left' && <Text style={styles.weakTag}>Nhánh yếu</Text>}
-            </View>
-            <View style={styles.branchDivider} />
-            <View style={styles.branchItem}>
-              <View style={[styles.branchDot, weakBranch === 'right' && styles.weakDot]} />
-              <Text style={styles.branchLabel}>Nhánh Phải</Text>
-              <CurrencyText amount={rightSales} size="sm" color={weakBranch === 'right' ? Colors.warning : Colors.success} />
-              {weakBranch === 'right' && <Text style={styles.weakTag}>Nhánh yếu</Text>}
-            </View>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView 
+          contentContainerStyle={styles.container} 
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} tintColor={Colors.primary} />
+          }
+        >
+          <View style={styles.header}>
+            <Text style={styles.title}>Cơ cấu nhân sự</Text>
+            <Text style={styles.subtitle}>Thiết kế sơ đồ nhị phân (Hỗ trợ Xem trước)</Text>
           </View>
-          <View style={styles.bonusRow}>
-            <Text style={styles.bonusLabel}>💰 Hoa hồng Nhị phân (9% nhánh yếu):</Text>
-            <CurrencyText amount={Math.floor(Math.min(leftSales, rightSales) * 0.09)} size="sm" color={Colors.accent} />
-          </View>
-        </Card>
 
-        {/* User's node card */}
-        <Text style={styles.treeTitle}>Thông tin node của bạn</Text>
-        <Card style={styles.myNodeCard}>
-          <View style={styles.myNodeRow}>
-            <View style={styles.myNodeAvatar}>
-              <Text style={styles.myNodeAvatarText}>{(profile.full_name ?? 'U').charAt(0)}</Text>
+          {/* Unplaced members banner */}
+          {unplacedMembers.length > 0 && (
+            <Card style={styles.unplacedCard}>
+              <View style={styles.unplacedHeader}>
+                <View style={styles.warningIndicator} />
+                <Text style={styles.unplacedTitle}>{unplacedMembers.length} Hội viên mới chờ sắp xếp</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unplacedScroll}>
+                {unplacedMembers.map(m => (
+                  <TouchableOpacity 
+                    key={m.user_id} 
+                    style={[styles.memberTab, memberToPlace?.user_id === m.user_id && styles.selectedMemberTab]}
+                    onPress={() => setMemberToPlace(m)}
+                  >
+                    <Text style={[styles.memberName, memberToPlace?.user_id === m.user_id && styles.selectedMemberName]}>{m.full_name}</Text>
+                    <Text style={styles.memberDate}>{new Date(m.created_at).toLocaleDateString('vi-VN')}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <Text style={styles.unplacedHint}>* Chọn hội viên, sau đó chọn "Vị trí ảo" trên sơ đồ để xem trước.</Text>
+            </Card>
+          )}
+
+          {/* Diagram Section */}
+          <View style={styles.diagramContainer}>
+            <View style={styles.diagramHeader}>
+              <Text style={styles.treeTitle}>Sơ đồ Cây ảo (Zoom & Pan)</Text>
+              <TouchableOpacity onPress={resetZoom} style={styles.resetBtn}>
+                <Text style={styles.resetBtnText}>Đặt lại Zoom</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.myNodeInfo}>
-              <Text style={styles.myNodeName}>{profile.full_name}</Text>
-              <Text style={styles.myNodeRank}>{UserRankLabel[rankKey] ?? rankKey}</Text>
-              <Text style={styles.myNodeSales}>DS tích lũy: {formatVND(networkNode.total_sales)}</Text>
+
+            <View style={styles.canvasFrame}>
+              <PanGestureHandler
+                onGestureEvent={onPanEvent}
+                onHandlerStateChange={onPanStateChange}
+              >
+                <Animated.View style={{ flex: 1 }}>
+                  <PinchGestureHandler
+                    onGestureEvent={onPinchEvent}
+                    onHandlerStateChange={onPinchStateChange}
+                  >
+                    <Animated.View 
+                      style={[
+                        styles.canvas,
+                        {
+                          transform: [
+                            { scale: scale },
+                            { translateX: translateX },
+                            { translateY: translateY },
+                          ]
+                        }
+                      ]}
+                    >
+                      <View style={styles.treeRootWrapper}>
+                         {renderNode(rootNodeItem, '', 'LEFT', 0)}
+                      </View>
+                    </Animated.View>
+                  </PinchGestureHandler>
+                </Animated.View>
+              </PanGestureHandler>
             </View>
-            <UserStatusBadge status={profile.status as any} />
+            
+            {viewRootId !== profile.id && (
+              <Button 
+                title="Về Gốc của tôi" 
+                onPress={() => setViewRootId(profile.id)} 
+                variant="outline"
+                size="sm"
+                style={styles.backRootBtn}
+              />
+            )}
           </View>
-        </Card>
 
-        {/* Rearrange request button */}
-        <Button
-          title="Gửi yêu cầu sắp xếp lại cơ cấu"
-          variant="outline"
-          fullWidth
-          style={styles.rearrangeBtn}
-          onPress={() => Alert.alert('Yêu cầu đã gửi', 'Admin sẽ xem xét và phản hồi yêu cầu của bạn.')}
-        />
+          {/* F1 List */}
+          <View style={styles.subListHeader}>
+            <Text style={styles.treeTitle}>Danh sách F1 (Trực tiếp)</Text>
+            <Text style={styles.subCount}>{subordinates.length} người</Text>
+          </View>
 
-        {/* Subordinates (F1) list */}
-        <View style={styles.subListHeader}>
-          <Text style={styles.treeTitle}>Thành viên trực thuộc (F1)</Text>
-          <Text style={styles.subCount}>{subordinates.length} người</Text>
-        </View>
-
-        {subordinates.length > 0 ? (
-          subordinates.map((sub) => (
+          {subordinates.map((sub: any) => (
             <Card key={sub.user_id} style={styles.subCard}>
               <View style={styles.subRow}>
                 <View style={[styles.posBadge, sub.position === 'LEFT' ? styles.posLeft : styles.posRight]}>
-                  <Text style={styles.posText}>{sub.position === 'LEFT' ? 'T' : 'P'}</Text>
+                  <Text style={styles.posText}>{sub.position === 'LEFT' ? 'T' : (sub.position === 'RIGHT' ? 'P' : '?')}</Text>
                 </View>
                 <View style={styles.subInfo}>
                   <Text style={styles.subName}>{sub.full_name}</Text>
                   <Text style={styles.subSales}>Doanh số: {formatVND(sub.total_sales)}</Text>
                 </View>
-                <View style={[styles.posLabelBadge, sub.position === 'LEFT' ? styles.posLeft : styles.posRight]}>
-                  <Text style={styles.posLabelText}>{sub.position === 'LEFT' ? 'NHÁNH TRÁI' : 'NHÁNH PHẢI'}</Text>
-                </View>
               </View>
             </Card>
-          ))
-        ) : (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>Chưa có thành viên trực thuộc nào.</Text>
+          ))}
+        </ScrollView>
+
+        {/* Placement Confirmation Modal */}
+        <Modal visible={!!selectedSlot} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Xếp vị trí (Dự thảo)</Text>
+              
+              {!memberToPlace ? (
+                <View style={styles.modalEmpty}>
+                  <Text style={styles.modalText}>Vui lòng chọn một hội viên mới từ danh sách phía trên trước khi chọn vị trí.</Text>
+                  <Button title="Đóng" onPress={() => setSelectedSlot(null)} variant="outline" />
+                </View>
+              ) : (
+                <View style={styles.confirmBox}>
+                  <Text style={styles.confirmText}>Bạn muốn xếp hội viên:</Text>
+                  <Text style={styles.confirmMember}>{memberToPlace.full_name}</Text>
+                  <Text style={styles.confirmText}>Vào vị trí này trên sơ đồ ảo?</Text>
+                  
+                  <View style={styles.modalButtons}>
+                    <Button 
+                      title="Hủy" 
+                      onPress={() => setSelectedSlot(null)} 
+                      variant="outline" 
+                      style={styles.modalBtn}
+                    />
+                    <Button 
+                      title={submitting ? "Đang gửi..." : "Xác nhận"} 
+                      onPress={handlePlaceMember} 
+                      loading={submitting}
+                      style={styles.modalBtn}
+                    />
+                  </View>
+                </View>
+              )}
+            </View>
           </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+        </Modal>
+      </SafeAreaView>
+    </GestureHandlerRootView>
   );
 };
-
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
@@ -158,44 +394,77 @@ const styles = StyleSheet.create({
   header: { marginBottom: Spacing.xl },
   title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text.primary },
   subtitle: { fontSize: FontSize.sm, color: Colors.text.secondary, marginTop: Spacing.xs },
-  statsCard: { marginBottom: Spacing.xl },
-  statsTitle: { fontSize: FontSize.md, fontWeight: '800', color: Colors.text.primary, marginBottom: Spacing.md },
-  branchRow: { flexDirection: 'row', marginBottom: Spacing.md },
-  branchItem: { flex: 1, alignItems: 'center', gap: Spacing.xs },
-  branchDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.success },
-  weakDot: { backgroundColor: Colors.warning },
-  branchLabel: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text.secondary },
-  weakTag: { fontSize: 10, color: Colors.warning, fontWeight: '700', backgroundColor: Colors.warningLight, paddingHorizontal: Spacing.xs, paddingVertical: 1, borderRadius: Radius.full },
-  branchDivider: { width: 1, backgroundColor: Colors.border },
-  bonusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border },
-  bonusLabel: { fontSize: FontSize.xs, color: Colors.text.secondary, flex: 1, marginRight: Spacing.sm },
-  treeTitle: { fontSize: FontSize.md, fontWeight: '800', color: Colors.text.primary, marginBottom: Spacing.md },
-  myNodeCard: { marginBottom: Spacing.md },
-  myNodeRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  myNodeAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
-  myNodeAvatarText: { fontSize: FontSize.lg, fontWeight: '900', color: '#fff' },
-  myNodeInfo: { flex: 1 },
-  myNodeName: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text.primary },
-  myNodeRank: { fontSize: FontSize.xs, color: Colors.primaryLight, fontWeight: '600' },
-  myNodeSales: { fontSize: FontSize.xs, color: Colors.text.secondary, marginTop: 2 },
-  rearrangeBtn: { marginTop: Spacing.xl, marginBottom: Spacing.xl },
+  
+  unplacedCard: { backgroundColor: '#FFF9E6', borderColor: '#FFE58F', borderWidth: 1, marginBottom: Spacing.xl },
+  unplacedHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
+  warningIndicator: { width: 4, height: 16, backgroundColor: Colors.warning, borderRadius: 2 },
+  unplacedTitle: { fontSize: FontSize.sm, fontWeight: '700', color: '#856404' },
+  unplacedScroll: { marginBottom: Spacing.sm },
+  memberTab: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, backgroundColor: '#fff', borderRadius: Radius.md, marginRight: Spacing.sm, borderWidth: 1, borderColor: '#eee' },
+  selectedMemberTab: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight + '20' },
+  memberName: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.text.primary },
+  selectedMemberName: { color: Colors.primary },
+  memberDate: { fontSize: 10, color: Colors.text.tertiary, marginTop: 2 },
+  unplacedHint: { fontSize: 10, color: Colors.text.secondary, fontStyle: 'italic' },
+
+  diagramContainer: { marginBottom: Spacing.xxxl },
+  diagramHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
+  resetBtn: { backgroundColor: '#f0f0f0', paddingHorizontal: Spacing.sm, paddingVertical: 4, borderRadius: Radius.sm },
+  resetBtnText: { fontSize: 10, fontWeight: '700', color: Colors.text.secondary },
+  canvasFrame: { height: 400, backgroundColor: '#fcfcfc', borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  canvas: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  treeRootWrapper: { padding: 100 }, // Large padding to allow panning to children
+
+  treeTitle: { fontSize: FontSize.md, fontWeight: '800', color: Colors.text.primary },
+  
+  treeBranch: { alignItems: 'center' },
+  nodeWrapper: { alignItems: 'center' },
+  nodeContainer: { width: 90, padding: Spacing.xs, backgroundColor: '#fff', borderRadius: Radius.md, alignItems: 'center', borderWidth: 1, borderColor: Colors.border, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+  rootNode: { borderColor: Colors.primary, borderWidth: 2 },
+  draftNode: { borderStyle: 'dashed', opacity: 0.8, borderColor: Colors.warning },
+  
+  draftBadge: { position: 'absolute', top: -10, backgroundColor: Colors.warning, paddingHorizontal: 4, borderRadius: 4, zIndex: 10 },
+  draftBadgeText: { fontSize: 7, fontWeight: '800', color: '#fff' },
+
+  nodeAvatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
+  draftAvatar: { backgroundColor: Colors.warning },
+  nodeAvatarText: { color: '#fff', fontWeight: '800', fontSize: 10 },
+  nodeName: { fontSize: 9, fontWeight: '700', color: Colors.text.primary, textAlign: 'center' },
+  nodePos: { fontSize: 7, color: Colors.text.tertiary, marginTop: 1 },
+  
+  emptyNode: { borderStyle: 'dashed', backgroundColor: 'transparent', borderColor: Colors.border, paddingVertical: Spacing.md },
+  emptyIcon: { width: 20, height: 20, borderRadius: 10, backgroundColor: Colors.border, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
+  emptyIconText: { color: '#fff', fontWeight: '900', fontSize: FontSize.sm },
+  emptyNodeText: { fontSize: 8, color: Colors.text.tertiary },
+
+  connectorLine: { width: 1.5, height: 12, backgroundColor: Colors.border },
+  childrenRow: { flexDirection: 'row', gap: 20 },
+  childColumn: { alignItems: 'center' },
+
+  backRootBtn: { marginTop: Spacing.md, alignSelf: 'center' },
+
   subListHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
   subCount: { fontSize: FontSize.xs, color: Colors.text.tertiary, fontWeight: '600' },
   subCard: { marginBottom: Spacing.xs, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
   subRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  posBadge: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  posBadge: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   posLeft: { backgroundColor: 'rgba(52, 152, 219, 0.1)' },
   posRight: { backgroundColor: 'rgba(231, 76, 60, 0.1)' },
-  posText: { fontSize: 10, fontWeight: '900', color: Colors.text.secondary },
-  posLabelBadge: { paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: Radius.sm },
-  posLabelText: { fontSize: 9, fontWeight: '800', color: Colors.text.primary },
+  posText: { fontSize: 9, fontWeight: '900', color: Colors.text.secondary },
   subInfo: { flex: 1 },
-
   subName: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text.primary },
-  subSales: { fontSize: 10, color: Colors.text.secondary, marginTop: 2 },
-  emptyState: { padding: Spacing.xl, alignItems: 'center' },
-  emptyText: { fontSize: FontSize.sm, color: Colors.text.tertiary, fontStyle: 'italic' },
-});
+  subSales: { fontSize: 9, color: Colors.text.secondary, marginTop: 1 },
 
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: Spacing.xl },
+  modalContent: { backgroundColor: '#fff', borderRadius: Radius.lg, padding: Spacing.xl },
+  modalTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text.primary, marginBottom: Spacing.md, textAlign: 'center' },
+  modalEmpty: { alignItems: 'center', gap: Spacing.md },
+  modalText: { fontSize: FontSize.sm, color: Colors.text.secondary, textAlign: 'center' },
+  confirmBox: { alignItems: 'center' },
+  confirmText: { fontSize: FontSize.xs, color: Colors.text.secondary, marginTop: Spacing.md },
+  confirmMember: { fontSize: FontSize.md, fontWeight: '800', color: Colors.primary, marginBottom: Spacing.md },
+  modalButtons: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.xl, width: '100%' },
+  modalBtn: { flex: 1 },
+});
 
 export default NetworkScreen;

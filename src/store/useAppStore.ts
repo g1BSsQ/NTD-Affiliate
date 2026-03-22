@@ -54,11 +54,37 @@ export interface NetworkNode {
 }
 
 export interface Subordinate {
-  user_id: string;
   full_name: string;
   position: string;
   status: string;
   total_sales: number;
+}
+
+export interface BinaryTreeNode {
+  user_id: string;
+  parent_id: string | null;
+  node_position: 'LEFT' | 'RIGHT' | null;
+  total_sales: number;
+  full_name: string;
+  status: string;
+  depth: number;
+}
+
+export interface UnplacedMember {
+  user_id: string;
+  full_name: string;
+  status: string;
+  created_at: string;
+}
+
+export interface PlacementRequest {
+  id: string;
+  sponsor_id: string;
+  member_id: string;
+  parent_id: string;
+  position: 'LEFT' | 'RIGHT';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  created_at: string;
 }
 
 
@@ -71,6 +97,9 @@ interface AppState {
   transactions: Transaction[];
   networkNode: NetworkNode | null;
   subordinates: Subordinate[];
+  binaryTree: BinaryTreeNode[];
+  unplacedMembers: UnplacedMember[];
+  placementRequests: PlacementRequest[];
   loading: boolean;
 
 
@@ -81,6 +110,10 @@ interface AppState {
   fetchTransactions: () => Promise<void>;
   fetchNetworkNode: () => Promise<void>;
   fetchSubordinates: () => Promise<void>;
+  fetchBinaryTree: () => Promise<void>;
+  fetchUnplacedMembers: () => Promise<void>;
+  fetchPlacementRequests: () => Promise<void>;
+  submitPlacementRequest: (memberId: string, parentId: string, position: 'LEFT' | 'RIGHT') => Promise<void>;
   createOrder: (packageId: string, boxes: number, totalPrice: number, receiptUrl: string, pointsUsed: number, shippingAddress?: string, deliveryMethod?: string, shippingName?: string, shippingPhone?: string) => Promise<void>;
   uploadOrderReceipt: (orderId: string, receiptUrl: string) => Promise<void>;
   fetchAll: () => Promise<void>;
@@ -95,6 +128,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   transactions: [],
   networkNode: null,
   subordinates: [],
+  binaryTree: [],
+  unplacedMembers: [],
+  placementRequests: [],
   loading: false,
 
 
@@ -200,6 +236,75 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  fetchUnplacedMembers: async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from('network_nodes')
+        .select(`
+          user_id,
+          profiles:network_nodes_user_id_fkey(full_name, status, created_at)
+        `)
+        .eq('sponsor_id', user.id)
+        .is('parent_id', null);
+
+      if (error) console.warn('fetchUnplacedMembers error:', error.message);
+      if (data) {
+        const mapped = data.map((item: any) => {
+          const profile = Array.isArray(item.profiles) ? item.profiles[0] : item.profiles;
+          return {
+            user_id: item.user_id,
+            full_name: profile?.full_name || 'Hội viên mới',
+            status: profile?.status || 'NEW',
+            created_at: profile?.created_at || new Date().toISOString()
+          };
+        });
+        set({ unplacedMembers: mapped });
+      }
+    } catch (e) { console.warn('fetchUnplacedMembers failed:', e); }
+  },
+
+  fetchPlacementRequests: async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('placement_requests')
+        .select('*')
+        .or(`sponsor_id.eq.${user.id},member_id.eq.${user.id}`)
+        .order('created_at', { ascending: false });
+      if (error) console.warn('fetchPlacementRequests error:', error.message);
+      if (data) set({ placementRequests: data });
+    } catch (e) { console.warn('fetchPlacementRequests failed:', e); }
+  },
+
+  submitPlacementRequest: async (memberId, parentId, position) => {
+    const { profile } = get();
+    if (!profile) return;
+    const { error } = await supabase
+      .from('placement_requests')
+      .insert([{
+        sponsor_id: profile.id,
+        member_id: memberId,
+        parent_id: parentId,
+        position
+      }]);
+    if (error) throw error;
+    await get().fetchPlacementRequests();
+  },
+
+  fetchBinaryTree: async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase.rpc('get_binary_tree', { root_user_id: user.id });
+      if (error) console.warn('fetchBinaryTree error:', error.message);
+      if (data) set({ binaryTree: data });
+    } catch (e) { console.warn('fetchBinaryTree failed:', e); }
+  },
+
   createOrder: async (packageId, boxes, totalPrice, receiptUrl, pointsUsed = 0, shippingAddress = '', deliveryMethod = 'PICKUP', shippingName = '', shippingPhone = '') => {
     const { profile: user } = get();
     if (!user) return;
@@ -246,6 +351,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       store.fetchTransactions(),
       store.fetchNetworkNode(),
       store.fetchSubordinates(),
+      store.fetchBinaryTree(),
+      store.fetchUnplacedMembers(),
+      store.fetchPlacementRequests(),
     ]);
 
     set({ loading: false });
@@ -258,6 +366,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     transactions: [],
     networkNode: null,
     subordinates: [],
+    unplacedMembers: [],
+    placementRequests: [],
     loading: false,
   }),
 
