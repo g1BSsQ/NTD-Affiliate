@@ -71,7 +71,7 @@ export const MainNavigator = () => {
         component={ProfileScreen}
         options={{
           title: 'Hồ sơ',
-          tabBarIcon: ({ focused }) => <TabIcon label="Hồ sơ" emoji="👤" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon label="Hồ sơ" emoji="💳" focused={focused} />,
         }}
       />
     </Tab.Navigator>

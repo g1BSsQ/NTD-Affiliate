@@ -22,15 +22,9 @@ import { Colors } from '../../constants/colors';
 import { FontSize } from '../../constants/typography';
 import { Spacing, Radius } from '../../constants/spacing';
 import { UserRankLabel } from '../../constants/enums';
+import { MILESTONES } from '../../constants/milestones'; // Added import
 import { useAppStore } from '../../store/useAppStore';
 import { supabase } from '../../lib/supabase';
-
-// Progress milestones
-const MILESTONES = [
-  { label: 'TĐL 3', target: 48000000, ekip: 5 },
-  { label: 'TĐL 2', target: 96000000, ekip: 7 },
-  { label: 'TĐL 1', target: 150000000, ekip: 10 },
-];
 
 const InfoRow = ({ label, value, accent }: { label: string; value: string; accent?: boolean }) => (
   <View style={styles.infoRow}>
@@ -118,11 +112,8 @@ const ProfileScreen = () => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} tintColor={Colors.primary} />
         }
       >
-        {/* Avatar / header */}
+        {/* User name and rank header */}
         <View style={styles.profileHeader}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{(profile.full_name ?? 'U').charAt(0).toUpperCase()}</Text>
-          </View>
           <Text style={styles.name}>{profile.full_name}</Text>
           <Text style={styles.rank}>{UserRankLabel[rankKey] ?? rankKey}</Text>
           <UserStatusBadge status={profile.status as any} />
@@ -245,23 +236,8 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
   loadingText: { fontSize: FontSize.sm, color: Colors.text.secondary },
   profileHeader: { alignItems: 'center', marginBottom: Spacing.xl, paddingVertical: Spacing.xl },
-  avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.md,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  avatarText: { fontSize: FontSize.xxxl, fontWeight: '900', color: '#fff' },
   name: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text.primary, marginBottom: Spacing.xs },
-  rank: { fontSize: FontSize.sm, color: Colors.primaryLight, fontWeight: '600', marginBottom: Spacing.sm },
+  rank: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '700', marginBottom: Spacing.sm },
   referralCard: { marginBottom: Spacing.md, backgroundColor: Colors.primary },
   referralTitle: { fontSize: FontSize.sm, fontWeight: '700', color: 'rgba(255,255,255,0.7)', marginBottom: Spacing.sm },
   referralCodeBox: { backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center' },
