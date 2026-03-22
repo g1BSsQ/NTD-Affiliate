@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Pressable,
   Alert,
   Image,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -28,7 +29,19 @@ const PACKAGES = [
 const REWARD_PER_BOX = 50000;
 
 const ShopScreen = () => {
-  const { wallets, profile } = useAppStore();
+  const { profile, wallets, fetchAll } = useAppStore();
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await fetchAll();
+    setRefreshing(false);
+  }, [fetchAll]);
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
+
   const [selected, setSelected] = useState<typeof PACKAGES[0] | null>(null);
   const [step, setStep] = useState<'shop' | 'checkout'>('shop');
   const [paymentMethod, setPaymentMethod] = useState<'BANK' | 'REWARD'>('BANK');
@@ -162,7 +175,13 @@ const ShopScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView 
+        contentContainerStyle={styles.container} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} tintColor={Colors.primary} />
+        }
+      >
         <View style={styles.pageHeader}>
           <Text style={styles.title}>Mua hàng</Text>
           <Text style={styles.subtitle}>Chọn gói sản phẩm phù hợp</Text>

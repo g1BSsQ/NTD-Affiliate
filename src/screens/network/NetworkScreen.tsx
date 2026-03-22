@@ -6,6 +6,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '../../components/Card';
@@ -19,13 +20,21 @@ import { UserRankLabel } from '../../constants/enums';
 import { useAppStore } from '../../store/useAppStore';
 
 const NetworkScreen = () => {
-  const { profile, networkNode, subordinates, loading, fetchProfile, fetchNetworkNode, fetchSubordinates } = useAppStore();
+  const { profile, networkNode, subordinates, loading, fetchProfile, fetchNetworkNode, fetchSubordinates, fetchAll } = useAppStore();
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await fetchAll();
+    setRefreshing(false);
+  }, [fetchAll]);
 
   useEffect(() => {
     fetchProfile();
     fetchNetworkNode();
     fetchSubordinates();
   }, [fetchProfile, fetchNetworkNode, fetchSubordinates]);
+
 
 
   if (loading || !networkNode || !profile) {
@@ -46,7 +55,13 @@ const NetworkScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={styles.container} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} tintColor={Colors.primary} />
+        }
+      >
         <View style={styles.header}>
           <Text style={styles.title}>Mạng lưới</Text>
           <Text style={styles.subtitle}>Cây hệ thống Nhị phân của bạn</Text>

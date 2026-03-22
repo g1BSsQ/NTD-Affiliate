@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '../../components/Card';
@@ -40,8 +41,16 @@ const InfoRow = ({ label, value, accent }: { label: string; value: string; accen
 const ProfileScreen = () => {
   const { logout } = useAuth();
   const { profile, wallets, networkNode, orders, loading, fetchAll } = useAppStore();
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await fetchAll();
+    setRefreshing(false);
+  }, [fetchAll]);
 
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+
   const [editData, setEditData] = useState({ fullName: '', phone: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -101,7 +110,13 @@ const ProfileScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={styles.container} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} tintColor={Colors.primary} />
+        }
+      >
         {/* Avatar / header */}
         <View style={styles.profileHeader}>
           <View style={styles.avatar}>
