@@ -150,14 +150,19 @@ export const VNAddressPicker: React.FC<VNAddressPickerProps> = ({
         </Text>
       </Pressable>
 
-      {/* Detail Address */}
-      <TextInput
-        style={styles.detailInput}
-        placeholder="Số nhà, tên đường..."
-        value={detail}
-        onChangeText={setDetail}
-        multiline
-      />
+      {/* Detail Address - Only show when Ward is picked */}
+      {selectedW && (
+        <View style={{ marginTop: Spacing.xs }}>
+          <Text style={styles.detailLabel}>Số nhà, tên đường, tòa nhà...</Text>
+          <TextInput
+            style={styles.detailInput}
+            placeholder="Ví dụ: 123 Đường Nguyễn Huệ"
+            value={detail}
+            onChangeText={setDetail}
+            multiline
+          />
+        </View>
+      )}
 
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
@@ -221,9 +226,10 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     fontSize: FontSize.sm,
     color: Colors.text.primary,
-    minHeight: 80,
+    minHeight: 60,
     textAlignVertical: 'top',
   },
+  detailLabel: { fontSize: 12, color: Colors.text.secondary, marginBottom: 4, fontWeight: '500' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#fff', borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, height: '80%', padding: Spacing.lg },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
