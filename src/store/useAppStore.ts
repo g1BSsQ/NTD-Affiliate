@@ -81,7 +81,7 @@ interface AppState {
   fetchTransactions: () => Promise<void>;
   fetchNetworkNode: () => Promise<void>;
   fetchSubordinates: () => Promise<void>;
-  createOrder: (packageId: string, boxes: number, totalPrice: number, receiptUrl: string, pointsUsed: number) => Promise<void>; // Added createOrder
+  createOrder: (packageId: string, boxes: number, totalPrice: number, receiptUrl: string, pointsUsed: number, shippingAddress?: string, deliveryMethod?: string, shippingName?: string, shippingPhone?: string) => Promise<void>;
   fetchAll: () => Promise<void>;
 
   reset: () => void;

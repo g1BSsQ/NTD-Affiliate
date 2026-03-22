@@ -21,6 +21,7 @@ import { FontSize } from '../../constants/typography';
 import { Spacing, Radius } from '../../constants/spacing';
 
 import { useAppStore } from '../../store/useAppStore';
+import { VNAddressPicker } from '../../components/VNAddressPicker';
 
 const PACKAGES = [
   { id: '1', label: 'CTV Tiêu dùng', boxes: 1, pricePerBox: 3000000 },
@@ -286,13 +287,10 @@ const ShopScreen = () => {
                   keyboardType="phone-pad"
                 />
 
-                <Text style={styles.inputLabel}>Địa chỉ chi tiết</Text>
-                <TextInput
-                  style={[styles.modalInput, { minHeight: 80, textAlignVertical: 'top' }]}
-                  value={address}
-                  onChangeText={setAddress}
-                  placeholder="Số nhà, tên đường, phường/xã, quận/huyện..."
-                  multiline
+                <Text style={styles.inputLabel}>Địa chỉ chi tiết (Chuẩn VN)</Text>
+                <VNAddressPicker 
+                  onAddressChange={setAddress} 
+                  initialAddress={address}
                 />
 
                 <Button 

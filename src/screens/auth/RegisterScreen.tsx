@@ -22,6 +22,7 @@ import { FontSize } from '../../constants/typography';
 import { Spacing, Radius } from '../../constants/spacing';
 import { formatVND } from '../../components/CurrencyText';
 import { supabase } from '../../lib/supabase';
+import { VNAddressPicker } from '../../components/VNAddressPicker';
 
 
 // --- Data ---
@@ -310,7 +311,13 @@ const RegisterScreen = () => {
                   </Pressable>
                 </View>
                 {!pickupAtWarehouse && (
-                  <Input label="Địa chỉ giao hàng" value={address} onChangeText={setAddress} placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/TP" multiline numberOfLines={3} required />
+                  <View style={{ marginTop: Spacing.md }}>
+                    <Text style={styles.inputLabel}>Địa chỉ giao hàng (Chuẩn VN)</Text>
+                    <VNAddressPicker 
+                      onAddressChange={setAddress} 
+                      initialAddress={address}
+                    />
+                  </View>
                 )}
                 <Button title="Tiếp theo →" onPress={nextStep} fullWidth size="lg" style={styles.nextBtn} disabled={!selectedPkg} />
               </Card>
@@ -439,6 +446,7 @@ const styles = StyleSheet.create({
   vatNote: { fontSize: 10, color: Colors.text.tertiary },
   selectedBadge: { marginTop: Spacing.sm, alignSelf: 'flex-start', backgroundColor: Colors.accent, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: Radius.full },
   selectedBadgeText: { fontSize: FontSize.xs, fontWeight: '700', color: '#fff' },
+  inputLabel: { fontSize: FontSize.xs, color: Colors.text.secondary, marginBottom: 6, fontWeight: '600' },
   pickupRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
   pickupOption: { flex: 1, padding: Spacing.sm, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center' },
   pickupSelected: { borderColor: Colors.primary, backgroundColor: Colors.surfaceElevated },
