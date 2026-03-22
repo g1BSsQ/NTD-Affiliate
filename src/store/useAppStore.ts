@@ -180,13 +180,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       
       if (error) console.warn('fetchSubordinates error:', error.message);
       if (data) {
-        const mapped = data.map((item: any) => ({
-          user_id: item.user_id,
-          position: item.position,
-          total_sales: item.total_sales,
-          full_name: (item.profiles as any)?.full_name || 'Hội viên mới',
-          status: (item.profiles as any)?.status || 'NEW'
-        }));
+        const mapped = data.map((item: any) => {
+          const profile = Array.isArray(item.profiles) ? item.profiles[0] : item.profiles;
+          return {
+            user_id: item.user_id,
+            position: item.position,
+            total_sales: item.total_sales,
+            full_name: profile?.full_name || 'Hội viên mới',
+            status: profile?.status || 'NEW'
+          };
+        });
         set({ subordinates: mapped });
       }
     } catch (e) { console.warn('fetchSubordinates failed:', e); }
