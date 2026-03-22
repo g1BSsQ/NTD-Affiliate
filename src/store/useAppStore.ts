@@ -174,7 +174,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           user_id,
           position,
           total_sales,
-          profiles(full_name, status)
+          profiles:network_nodes_user_id_fkey(full_name, status)
         `)
         .eq('sponsor_id', user.id);
       

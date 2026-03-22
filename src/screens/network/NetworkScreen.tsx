@@ -118,7 +118,9 @@ const NetworkScreen = () => {
                   <Text style={styles.subName}>{sub.full_name}</Text>
                   <Text style={styles.subSales}>Doanh số: {formatVND(sub.total_sales)}</Text>
                 </View>
-                <UserStatusBadge status={sub.status as any} />
+                <View style={[styles.posLabelBadge, sub.position === 'LEFT' ? styles.posLeft : styles.posRight]}>
+                  <Text style={styles.posLabelText}>{sub.position === 'LEFT' ? 'NHÁNH TRÁI' : 'NHÁNH PHẢI'}</Text>
+                </View>
               </View>
             </Card>
           ))
@@ -170,7 +172,10 @@ const styles = StyleSheet.create({
   posLeft: { backgroundColor: 'rgba(52, 152, 219, 0.1)' },
   posRight: { backgroundColor: 'rgba(231, 76, 60, 0.1)' },
   posText: { fontSize: 10, fontWeight: '900', color: Colors.text.secondary },
+  posLabelBadge: { paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: Radius.sm },
+  posLabelText: { fontSize: 9, fontWeight: '800', color: Colors.text.primary },
   subInfo: { flex: 1 },
+
   subName: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text.primary },
   subSales: { fontSize: 10, color: Colors.text.secondary, marginTop: 2 },
   emptyState: { padding: Spacing.xl, alignItems: 'center' },
