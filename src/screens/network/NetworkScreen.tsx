@@ -193,6 +193,41 @@ const NetworkScreen = () => {
     placementRequests.filter(r => r.status === 'PLANNING').length
   , [placementRequests]);
 
+  const rootNodeItem = useMemo(() => {
+    if (!profile || !viewRootId) return null;
+
+    // 1. Official nodes
+    const official = binaryTree.find(n => n.user_id === viewRootId);
+    if (official) return { ...official, isDraft: false };
+
+    // 2. Draft/Pending nodes
+    const sortedRequests = [...placementRequests].sort((a,b) => {
+      if (a.status === 'PLANNING') return -1;
+      if (b.status === 'PLANNING') return 1;
+      return 0;
+    });
+    
+    const request = sortedRequests.find(r => r.member_id === viewRootId);
+    if (request) {
+      const member = unplacedMembers.find(m => m.user_id === viewRootId);
+      return {
+        id: request.id,
+        user_id: request.member_id,
+        full_name: member?.full_name || 'Hội viên mới',
+        node_position: request.position,
+        isDraft: true,
+        status: request.status
+      };
+    }
+
+    // 3. Fallback to main profile
+    if (viewRootId === profile.id) {
+      return { user_id: profile.id, full_name: profile.full_name, isDraft: false };
+    }
+
+    return null;
+  }, [binaryTree, placementRequests, unplacedMembers, viewRootId, profile]);
+
   if (loading && !refreshing && (!networkNode || !profile)) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -315,42 +350,6 @@ const NetworkScreen = () => {
       </View>
     );
   };
-
-  const rootNodeItem = useMemo(() => {
-    if (!profile || !viewRootId) return null;
-
-    // 1. Official nodes
-    const official = binaryTree.find(n => n.user_id === viewRootId);
-    if (official) return { ...official, isDraft: false };
-
-    // 2. Draft/Pending nodes
-    // Find the current active request (Priority: PLANNING > PENDING)
-    const sortedRequests = [...placementRequests].sort((a,b) => {
-      if (a.status === 'PLANNING') return -1;
-      if (b.status === 'PLANNING') return 1;
-      return 0;
-    });
-    
-    const request = sortedRequests.find(r => r.member_id === viewRootId);
-    if (request) {
-      const member = unplacedMembers.find(m => m.user_id === viewRootId);
-      return {
-        id: request.id,
-        user_id: request.member_id,
-        full_name: member?.full_name || 'Hội viên mới',
-        node_position: request.position,
-        isDraft: true,
-        status: request.status
-      };
-    }
-
-    // 3. Fallback to main profile
-    if (viewRootId === profile.id) {
-      return { user_id: profile.id, full_name: profile.full_name, isDraft: false };
-    }
-
-    return null;
-  }, [binaryTree, placementRequests, unplacedMembers, viewRootId, profile]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
