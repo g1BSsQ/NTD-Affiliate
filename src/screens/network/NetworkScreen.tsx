@@ -145,28 +145,44 @@ const NetworkScreen = () => {
   const treeMap = useMemo(() => {
     const map: Record<string, { LEFT?: any, RIGHT?: any }> = {};
     
-    // 1. Official nodes
+    // 1. Identify "Active" status for each member to handle "Shadowing" (Hiding old pos)
+    // Priority: PLANNING > PENDING > Official
+    const memberPositions: Record<string, { parent_id: string, position: string, isDraft: boolean, status: string }> = {};
+
+    // First: Official
     binaryTree.forEach(node => {
-      if (node.parent_id) {
-        if (!map[node.parent_id]) map[node.parent_id] = {};
-        map[node.parent_id][node.node_position as 'LEFT' | 'RIGHT'] = { ...node, isDraft: false };
+      if (node.parent_id && node.node_position) {
+        memberPositions[node.user_id] = { parent_id: node.parent_id, position: node.node_position, isDraft: false, status: 'OFFICIAL' };
       }
     });
 
-    // 2. Draft (Planning & Pending) nodes
-    placementRequests.filter(r => r.status === 'PLANNING' || r.status === 'PENDING').forEach(req => {
-      if (!map[req.parent_id]) map[req.parent_id] = {};
+    // Second: Pending (overwrites Official)
+    placementRequests.filter(r => r.status === 'PENDING').forEach(req => {
+      memberPositions[req.member_id] = { parent_id: req.parent_id, position: req.position, isDraft: true, status: 'PENDING' };
+    });
+
+    // Third: Planning (overwrites Pending/Official)
+    placementRequests.filter(r => r.status === 'PLANNING').forEach(req => {
+      memberPositions[req.member_id] = { parent_id: req.parent_id, position: req.position, isDraft: true, status: 'PLANNING' };
+    });
+
+    // 2. Build the final map based on the resolved positions
+    Object.keys(memberPositions).forEach(userId => {
+      const posInfo = memberPositions[userId];
+      if (!map[posInfo.parent_id]) map[posInfo.parent_id] = {};
       
-      const member = unplacedMembers.find(m => m.user_id === req.member_id);
-      
-      map[req.parent_id][req.position] = {
-        id: req.id,
-        user_id: req.member_id,
-        full_name: member?.full_name || 'Hội viên mới',
-        node_position: req.position,
-        isDraft: true,
-        parent_id: req.parent_id,
-        status: req.status
+      const officialNode = binaryTree.find(n => n.user_id === userId);
+      const member = unplacedMembers.find(m => m.user_id === userId);
+
+      map[posInfo.parent_id][posInfo.position as 'LEFT' | 'RIGHT'] = {
+        id: placementRequests.find(r => r.member_id === userId && r.status === posInfo.status)?.id || officialNode?.user_id,
+        user_id: userId,
+        full_name: officialNode?.full_name || member?.full_name || 'Hội viên mới',
+        total_sales: officialNode?.total_sales || 0,
+        node_position: posInfo.position,
+        isDraft: posInfo.isDraft,
+        parent_id: posInfo.parent_id,
+        status: posInfo.status
       };
     });
 

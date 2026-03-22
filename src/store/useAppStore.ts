@@ -300,12 +300,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       const { profile: user } = get();
       if (!user) return;
 
-      // 1. Delete any existing PLANNING or PENDING request for this member (Repositioning)
+      // 1. Delete any existing PLANNING request for this member (overwrite current draft)
+      // but NOT PENDING requests. We keep PENDING as a fallback.
       await supabase
         .from('placement_requests')
         .delete()
         .eq('member_id', memberId)
-        .in('status', ['PLANNING', 'PENDING']);
+        .eq('status', 'PLANNING');
 
       // 2. Submit as PLANNING (Draft)
       const { error } = await supabase.from('placement_requests').insert([{
@@ -333,6 +334,22 @@ export const useAppStore = create<AppState>((set, get) => ({
       const { profile: user } = get();
       if (!user) return;
       
+      const { data: planning } = await supabase
+        .from('placement_requests')
+        .select('member_id')
+        .eq('sponsor_id', user.id)
+        .eq('status', 'PLANNING');
+
+      if (planning && planning.length > 0) {
+        const memberIds = planning.map(p => p.member_id);
+        // Delete old PENDING requests for these members before promoting drafts
+        await supabase
+          .from('placement_requests')
+          .delete()
+          .in('member_id', memberIds)
+          .eq('status', 'PENDING');
+      }
+
       const { error } = await supabase
         .from('placement_requests')
         .update({ status: 'PENDING' })
