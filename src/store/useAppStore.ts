@@ -65,6 +65,8 @@ export interface BinaryTreeNode {
   parent_id: string | null;
   node_position: 'LEFT' | 'RIGHT' | null;
   total_sales: number;
+  left_sales: number;
+  right_sales: number;
   full_name: string;
   status: string;
   depth: number;

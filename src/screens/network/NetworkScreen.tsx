@@ -190,6 +190,8 @@ const NetworkScreen = () => {
         user_id: userId,
         full_name: officialNode?.full_name || member?.full_name || 'Hội viên mới',
         total_sales: officialNode?.total_sales || 0,
+        left_sales: officialNode?.left_sales || 0,
+        right_sales: officialNode?.right_sales || 0,
         node_position: posInfo.position,
         isDraft: posInfo.isDraft,
         parent_id: posInfo.parent_id,
@@ -227,13 +229,23 @@ const NetworkScreen = () => {
         full_name: member?.full_name || 'Hội viên mới',
         node_position: request.position,
         isDraft: true,
-        status: request.status
+        status: request.status,
+        total_sales: 0,
+        left_sales: 0,
+        right_sales: 0
       };
     }
 
     // 3. Fallback to main profile
     if (viewRootId === profile.id) {
-      return { user_id: profile.id, full_name: profile.full_name, isDraft: false };
+      return { 
+        user_id: profile.id, 
+        full_name: profile.full_name, 
+        isDraft: false,
+        total_sales: 0,
+        left_sales: networkNode?.left_sales || 0,
+        right_sales: networkNode?.right_sales || 0
+      };
     }
 
     return null;
@@ -374,6 +386,33 @@ const NetworkScreen = () => {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} tintColor={Colors.primary} />
           }
         >
+          {/* Network Dashboard */}
+          <Card style={styles.statsCard}>
+            <View style={styles.statsHeader}>
+              <Text style={styles.statsIcon}>📊</Text>
+              <Text style={styles.statsTitle}>Tổng quan Hệ thống</Text>
+            </View>
+            
+            <View style={styles.statsGrid}>
+              <View style={styles.statsItem}>
+                <Text style={styles.statsLabel}>Nhánh Trái</Text>
+                <Text style={styles.statsValue}>{formatVND(rootNodeItem?.left_sales || 0)}</Text>
+              </View>
+              <View style={styles.statsDivider} />
+              <View style={styles.statsItem}>
+                <Text style={styles.statsLabel}>Nhánh Phải</Text>
+                <Text style={styles.statsValue}>{formatVND(rootNodeItem?.right_sales || 0)}</Text>
+              </View>
+            </View>
+
+            <View style={styles.commissionBox}>
+              <Text style={styles.commissionLabel}>Hoa hồng Cân nhánh (9%)</Text>
+              <Text style={styles.commissionValue}>
+                {formatVND(Math.min(rootNodeItem?.left_sales || 0, rootNodeItem?.right_sales || 0) * 0.09)}
+              </Text>
+              <Text style={styles.commissionHint}>* Dự kiến dựa trên doanh số nhánh yếu hiện tại</Text>
+            </View>
+          </Card>
           <View style={styles.header}>
             <Text style={styles.title}>Cơ cấu nhân sự</Text>
             <Text style={styles.subtitle}>Thiết kế sơ đồ nhị phân (Hỗ trợ Xem trước)</Text>
@@ -620,6 +659,26 @@ const styles = StyleSheet.create({
   confirmMember: { fontSize: FontSize.md, fontWeight: '800', color: Colors.primary, marginBottom: Spacing.md },
   modalButtons: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.xl, width: '100%' },
   modalBtn: { flex: 1 },
+  statsCard: { padding: 16, marginBottom: 16, backgroundColor: '#fff' },
+  statsHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
+  statsIcon: { fontSize: 18 },
+  statsTitle: { fontSize: 13, fontWeight: '700', color: Colors.text.primary },
+  statsGrid: { flexDirection: 'row', backgroundColor: '#F8FAFC', borderRadius: 12, padding: 12, marginBottom: 16 },
+  statsItem: { flex: 1, alignItems: 'center' },
+  statsDivider: { width: 1, backgroundColor: '#E2E8F0', marginHorizontal: 12 },
+  statsLabel: { fontSize: 10, color: Colors.text.tertiary, marginBottom: 4 },
+  statsValue: { fontSize: 14, fontWeight: '800', color: Colors.primary },
+  commissionBox: { 
+    backgroundColor: 'rgba(57, 181, 74, 0.05)', 
+    borderRadius: 12, 
+    padding: 12, 
+    borderWidth: 1, 
+    borderColor: 'rgba(57, 181, 74, 0.1)',
+    alignItems: 'center'
+  },
+  commissionLabel: { fontSize: 10, color: Colors.text.secondary, marginBottom: 2 },
+  commissionValue: { fontSize: 18, fontWeight: '900', color: '#39B54A' },
+  commissionHint: { fontSize: 8, color: Colors.text.tertiary, marginTop: 4, fontStyle: 'italic' },
   floatingSubmitContainer: {
     position: 'absolute',
     bottom: 20,
