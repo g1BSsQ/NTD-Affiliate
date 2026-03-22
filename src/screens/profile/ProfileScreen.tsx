@@ -10,6 +10,7 @@ import {
   Modal,
   TextInput,
   RefreshControl,
+  Clipboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '../../components/Card';
@@ -132,9 +133,12 @@ const ProfileScreen = () => {
           <Text style={styles.referralTitle}>🎯 Mã giới thiệu của bạn</Text>
           <Pressable
             style={styles.referralCodeBox}
-            onPress={() => Alert.alert('Sao chép!', `Mã: ${profile.full_name}`)}
+            onPress={() => {
+              Clipboard.setString(profile.sponsor_code || '');
+              Alert.alert('Đã chép!', `Mã ${profile.sponsor_code} đã được lưu vào bộ nhớ tạm.`);
+            }}
           >
-            <Text style={styles.referralCode}>{(profile.full_name ?? '').toUpperCase()}</Text>
+            <Text style={styles.referralCode}>{profile.sponsor_code || 'CHƯA CẬP NHẬT'}</Text>
             <Text style={styles.copyHint}>Nhấn để sao chép</Text>
           </Pressable>
         </Card>
@@ -159,7 +163,7 @@ const ProfileScreen = () => {
           <Text style={styles.cardTitle}>Thông tin tài khoản</Text>
           <InfoRow label="Họ tên" value={profile.full_name ?? '—'} />
           <InfoRow label="Điện thoại" value={profile.phone ?? '—'} />
-          <InfoRow label="Người bảo trợ" value={profile.sponsor_code ?? '—'} accent />
+          <InfoRow label="Mã giới thiệu" value={profile.sponsor_code ?? '—'} accent />
           <InfoRow label="Trạng thái" value={profile.status} />
           <Pressable
             style={styles.editBtn}
