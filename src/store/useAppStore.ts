@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { notifyOrderApproved, notifyWithdrawApproved } from '../lib/notifications';
 
 // ---- Types ----
 export interface Profile {
@@ -68,6 +69,7 @@ export interface BinaryTreeNode {
   left_sales: number;
   right_sales: number;
   full_name: string;
+  phone?: string;
   status: string;
   depth: number;
 }
@@ -75,6 +77,7 @@ export interface BinaryTreeNode {
 export interface UnplacedMember {
   user_id: string;
   full_name: string;
+  phone?: string;
   status: string;
   created_at: string;
 }
@@ -169,13 +172,29 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      
+      // Lấy danh sách cũ để so sánh
+      const prevOrders = get().orders;
+      
       const { data, error } = await supabase
         .from('orders')
         .select('*, points_used') // Added points_used to select
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       if (error) console.warn('fetchOrders error:', error.message);
-      if (data) set({ orders: data });
+      
+      if (data) {
+        // Kiểm tra xem có order nào vừa chuyển sang COMPLETED không
+        if (prevOrders.length > 0) {
+          data.forEach(newO => {
+            const oldO = prevOrders.find(o => o.id === newO.id);
+            if (oldO && oldO.status !== 'COMPLETED' && newO.status === 'COMPLETED') {
+              notifyOrderApproved(newO.total_price);
+            }
+          });
+        }
+        set({ orders: data });
+      }
     } catch (e) { console.warn('fetchOrders failed:', e); }
   },
 
@@ -183,13 +202,33 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      
+      const prevTxs = get().transactions;
+      
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       if (error) console.warn('fetchTransactions error:', error.message);
-      if (data) set({ transactions: data });
+      
+      if (data) {
+        // Trigger notification nếu transaction Withdraw vừa thành công (nhận amount dương và status = COMPLETED)
+        if (prevTxs.length > 0) {
+          // Note: Đối với Withdraw, trạng thái duyệt thường tạo transaction mới
+          // Nếu có giao dịch withdraw *mới* được thêm vào (mà trước đây chưa có)
+          const newWithdraws = data.filter(t => 
+            t.type === 'WITHDRAW' && 
+            !prevTxs.some(old => old.id === t.id)
+          );
+          
+          newWithdraws.forEach(t => {
+            // Amount của withdraw thường lưu số âm, notify abs()
+            notifyWithdrawApproved(Math.abs(t.amount));
+          });
+        }
+        set({ transactions: data });
+      }
     } catch (e) { console.warn('fetchTransactions failed:', e); }
   },
 
@@ -249,7 +288,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         .from('network_nodes')
         .select(`
           user_id,
-          profiles:network_nodes_user_id_fkey(full_name, status, created_at)
+          profiles:network_nodes_user_id_fkey(full_name, phone, status, created_at)
         `)
         .eq('sponsor_id', user.id)
         .is('parent_id', null);
@@ -261,6 +300,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           return {
             user_id: item.user_id,
             full_name: profile?.full_name || 'Hội viên mới',
+            phone: profile?.phone || '',
             status: profile?.status || 'NEW',
             created_at: profile?.created_at || new Date().toISOString()
           };

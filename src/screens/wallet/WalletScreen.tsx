@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,8 +7,10 @@ import {
   Alert,
   TextInput,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BarChart } from 'react-native-gifted-charts';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { CurrencyText } from '../../components/CurrencyText';
@@ -18,6 +20,8 @@ import { Spacing, Radius } from '../../constants/spacing';
 import { useAppStore, type Transaction } from '../../store/useAppStore';
 import { supabase } from '../../lib/supabase';
 import { FlashList } from '@shopify/flash-list';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 const txTypeIcon: Record<string, string> = {
   COMMISSION: '💸', REWARD: '🎁', WITHDRAW: '🏦', PURCHASE: '🛍️',
@@ -56,6 +60,39 @@ const WalletScreen = () => {
   const commissionWallet = wallets.find(w => w.type === 'COMMISSION')?.balance ?? 0;
 
   const filtered = transactions.filter(t => activeTab === 'ALL' || t.wallet_type === activeTab);
+
+  // --- Tính dữ liệu 6 tháng gần nhất cho BarChart ---
+  const chartData = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+      const month = d.getMonth();
+      const year = d.getFullYear();
+      const total = transactions
+        .filter(t => {
+          const td = new Date(t.created_at);
+          return (
+            t.type === 'COMMISSION' &&
+            t.amount > 0 &&
+            td.getMonth() === month &&
+            td.getFullYear() === year
+          );
+        })
+        .reduce((sum, t) => sum + t.amount, 0);
+      return {
+        value: total / 1_000_000, // Đổi sang triệu để label gọn
+        label: `T${d.getMonth() + 1}`,
+        frontColor: total > 0 ? Colors.primary : Colors.border,
+        topLabelComponent: total > 0
+          ? () => (
+              <Text style={chartStyles.barLabel}>
+                {(total / 1_000_000).toFixed(1)}M
+              </Text>
+            )
+          : undefined,
+      };
+    });
+  }, [transactions]);
 
   const handleWithdraw = async () => {
     const amt = parseInt(withdrawAmt.replace(/\D/g, ''), 10);
@@ -131,6 +168,31 @@ const WalletScreen = () => {
         </Card>
       </View>
 
+      {/* Biểu đồ thu nhập 6 tháng */}
+      <Card style={chartStyles.card}>
+        <Text style={styles.cardTitle}>📈 Hoa hồng theo tháng</Text>
+        <Text style={chartStyles.subtitle}>6 tháng gần nhất (đơn vị: triệu đồng)</Text>
+        <View style={chartStyles.chartWrapper}>
+          <BarChart
+            data={chartData}
+            width={SCREEN_WIDTH - 80}
+            height={140}
+            barWidth={32}
+            spacing={16}
+            roundedTop
+            noOfSections={4}
+            maxValue={Math.max(...chartData.map(d => d.value), 1)}
+            yAxisThickness={0}
+            xAxisThickness={1}
+            xAxisColor={Colors.border}
+            yAxisTextStyle={chartStyles.axisLabel}
+            xAxisLabelTextStyle={chartStyles.axisLabel}
+            hideRules
+            isAnimated
+          />
+        </View>
+      </Card>
+
       <Card style={styles.withdrawCard}>
         <Text style={styles.cardTitle}>Rút tiền</Text>
         <Text style={styles.withdrawNote}>Tối thiểu 100.000đ · Chờ Admin duyệt</Text>
@@ -202,6 +264,14 @@ const WalletScreen = () => {
     </SafeAreaView>
   );
 };
+
+const chartStyles = StyleSheet.create({
+  card: { marginBottom: Spacing.xl, padding: Spacing.lg },
+  subtitle: { fontSize: FontSize.xs, color: Colors.text.tertiary, marginBottom: Spacing.md },
+  chartWrapper: { alignItems: 'center', marginLeft: -Spacing.sm },
+  axisLabel: { fontSize: 9, color: Colors.text.tertiary },
+  barLabel: { fontSize: 8, color: Colors.primary, fontWeight: '700', marginBottom: 2 },
+});
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },

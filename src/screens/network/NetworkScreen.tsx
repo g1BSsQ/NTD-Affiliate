@@ -8,9 +8,11 @@ import {
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
+  Pressable,
   Modal,
   Animated,
   Dimensions,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
@@ -55,6 +57,7 @@ const NetworkScreen = () => {
   const [submitting, setSubmitting] = useState(false);
   const [viewRootId, setViewRootId] = useState<string | null>(null);
   const [isGesturing, setIsGesturing] = useState(false);
+  const [selectedNodeForContact, setSelectedNodeForContact] = useState<{ name: string; phone: string } | null>(null);
 
   // --- Zoom & Pan Logic (Enhanced) ---
   const pinchRef = useRef(null);
@@ -192,6 +195,7 @@ const NetworkScreen = () => {
         total_sales: officialNode?.total_sales || 0,
         left_sales: officialNode?.left_sales || 0,
         right_sales: officialNode?.right_sales || 0,
+        phone: officialNode?.phone || member?.phone || '',
         node_position: posInfo.position,
         isDraft: posInfo.isDraft,
         parent_id: posInfo.parent_id,
@@ -244,7 +248,8 @@ const NetworkScreen = () => {
         isDraft: false,
         total_sales: 0,
         left_sales: networkNode?.left_sales || 0,
-        right_sales: networkNode?.right_sales || 0
+        right_sales: networkNode?.right_sales || 0,
+        phone: profile.phone || ''
       };
     }
 
@@ -323,6 +328,14 @@ const NetworkScreen = () => {
               node.isDraft && styles.draftNode
             ]}
             onPress={() => setViewRootId(node.user_id)}
+            onLongPress={() => {
+              if (node.phone) {
+                setSelectedNodeForContact({ name: node.full_name, phone: node.phone });
+              } else {
+                Alert.alert('Không có SĐT', `${node.full_name} chưa cập nhật số điện thoại.`);
+              }
+            }}
+            delayLongPress={500}
           >
             {node.isDraft && (
               <View style={[styles.draftBadge, node.status === 'PENDING' && styles.pendingBadge]}>
@@ -555,6 +568,50 @@ const NetworkScreen = () => {
             </View>
           </View>
         </Modal>
+
+        {/* Contact Quick-Access Modal */}
+        <Modal
+          visible={!!selectedNodeForContact}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setSelectedNodeForContact(null)}
+        >
+          <Pressable style={contactStyles.overlay} onPress={() => setSelectedNodeForContact(null)}>
+            <View style={contactStyles.sheet}>
+              <View style={contactStyles.handle} />
+              <Text style={contactStyles.name}>{selectedNodeForContact?.name}</Text>
+              <Text style={contactStyles.phone}>{selectedNodeForContact?.phone}</Text>
+
+              <View style={contactStyles.btnRow}>
+                <TouchableOpacity
+                  style={[contactStyles.actionBtn, contactStyles.callBtn]}
+                  onPress={() => {
+                    Linking.openURL(`tel:${selectedNodeForContact?.phone}`);
+                    setSelectedNodeForContact(null);
+                  }}
+                >
+                  <Text style={contactStyles.actionIcon}>📞</Text>
+                  <Text style={contactStyles.actionLabel}>Gọi điện</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[contactStyles.actionBtn, contactStyles.zaloBtn]}
+                  onPress={() => {
+                    Linking.openURL(`https://zalo.me/${selectedNodeForContact?.phone}`);
+                    setSelectedNodeForContact(null);
+                  }}
+                >
+                  <Text style={contactStyles.actionIcon}>💬</Text>
+                  <Text style={contactStyles.actionLabel}>Nhắn Zalo</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity style={contactStyles.closeBtn} onPress={() => setSelectedNodeForContact(null)}>
+                <Text style={contactStyles.closeBtnText}>Đóng</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Modal>
       </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -695,6 +752,35 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   }
+});
+
+const contactStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    padding: Spacing.xl,
+    paddingBottom: 36,
+    alignItems: 'center',
+  },
+  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border, marginBottom: Spacing.xl },
+  name: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text.primary, marginBottom: Spacing.xs },
+  phone: { fontSize: FontSize.md, color: Colors.primary, fontWeight: '700', marginBottom: Spacing.xl },
+  btnRow: { flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.md },
+  actionBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: Spacing.lg,
+    borderRadius: Radius.lg,
+    gap: Spacing.xs,
+  },
+  callBtn: { backgroundColor: 'rgba(39, 174, 96, 0.1)', borderWidth: 1.5, borderColor: 'rgba(39, 174, 96, 0.3)' },
+  zaloBtn: { backgroundColor: 'rgba(0, 130, 198, 0.1)', borderWidth: 1.5, borderColor: 'rgba(0, 130, 198, 0.3)' },
+  actionIcon: { fontSize: 28 },
+  actionLabel: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text.primary },
+  closeBtn: { padding: Spacing.md, marginTop: Spacing.xs },
+  closeBtnText: { fontSize: FontSize.sm, color: Colors.text.tertiary, fontWeight: '600' },
 });
 
 export default NetworkScreen;

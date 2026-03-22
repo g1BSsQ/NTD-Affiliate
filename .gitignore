@@ -83,3 +83,13 @@ yarn-error.log
 !.eslintrc.js
 !.watchmanconfig
 !.babel.config.js
+
+# Media and Logs
+*.mp4
+*.mov
+*.avi
+*.webm
+*.log
+git_status_full.txt
+staged_files.txt
+*.webp

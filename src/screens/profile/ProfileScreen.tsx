@@ -11,6 +11,7 @@ import {
   TextInput,
   RefreshControl,
   Clipboard,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '../../components/Card';
@@ -45,6 +46,7 @@ const ProfileScreen = () => {
   }, [fetchAll]);
 
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [isPolicyModalVisible, setIsPolicyModalVisible] = useState(false);
 
   const [editData, setEditData] = useState({ fullName: '', phone: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -103,6 +105,25 @@ const ProfileScreen = () => {
     }, 1500);
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Yêu cầu Xóa / Khóa Tài khoản',
+      'Theo quy định về kế toán và phòng chống gian lận, lịch sử giao dịch và vị trí mạng lưới của bạn sẽ tiếp tục được lưu trữ an toàn để đối soát. Tuy nhiên, toàn bộ Thông tin cá nhân (Tên, SĐT, CCCD) sẽ bị ẩn danh hoàn toàn và quyền truy cập ứng dụng sẽ bị thu hồi vĩnh viễn.\n\nBạn có chắc chắn muốn gửi Yêu cầu xóa?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { 
+          text: 'Xác nhận', 
+          style: 'destructive', 
+          onPress: () => {
+            // Gửi email yêu cầu tới Admin
+            Linking.openURL(`mailto:support@ntdaffiliate.com?subject=Yêu cầu đóng tài khoản: ${profile.id}&body=Chào Admin, tôi muốn yêu cầu đóng tài khoản và ẩn danh hóa dữ liệu cá nhân của tôi. User ID: ${profile.id}`);
+            handleLogout();
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView 
@@ -154,14 +175,23 @@ const ProfileScreen = () => {
           <Text style={styles.cardTitle}>Thông tin tài khoản</Text>
           <InfoRow label="Họ tên" value={profile.full_name ?? '—'} />
           <InfoRow label="Điện thoại" value={profile.phone ?? '—'} />
-          <InfoRow label="Mã giới thiệu" value={profile.sponsor_code ?? '—'} accent />
           <InfoRow label="Trạng thái" value={profile.status} />
-          <Pressable
-            style={styles.editBtn}
-            onPress={() => setIsEditModalVisible(true)}
-          >
-            <Text style={styles.editBtnText}>Yêu cầu chỉnh sửa thông tin</Text>
-          </Pressable>
+          
+          <View style={styles.actionRow}>
+            <Pressable
+              style={styles.actionBtn}
+              onPress={() => setIsPolicyModalVisible(true)}
+            >
+              <Text style={styles.actionBtnText}>Hướng dẫn & Chính sách</Text>
+            </Pressable>
+            
+            <Pressable
+              style={styles.actionBtn}
+              onPress={() => setIsEditModalVisible(true)}
+            >
+              <Text style={styles.actionBtnText}>Yêu cầu chỉnh sửa</Text>
+            </Pressable>
+          </View>
         </Card>
 
         {/* Edit Profile Modal */}
@@ -213,6 +243,41 @@ const ProfileScreen = () => {
           </View>
         </Modal>
 
+        {/* Policy Modal */}
+        <Modal
+          visible={isPolicyModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setIsPolicyModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { height: '80%' }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Hướng dẫn & Chính sách</Text>
+                <Pressable onPress={() => setIsPolicyModalVisible(false)}>
+                  <Text style={styles.closeBtn}>✕</Text>
+                </Pressable>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.policyScroll}>
+                <Text style={styles.policyHeading}>1. Chính sách tham gia</Text>
+                <Text style={styles.policyText}>- Người tham gia phải đủ 18 tuổi và có đầy đủ năng lực hành vi dân sự.{'\n'}- Tài khoản sẽ được kích hoạt (ACTIVE) sau khi thanh toán đơn hàng gói sản phẩm đầu tiên và tải lên CCCD để xác minh phân phối.</Text>
+                
+                <Text style={styles.policyHeading}>2. Cấu trúc hoa hồng</Text>
+                <Text style={styles.policyText}>- Hoa hồng trực tiếp: Nhận ngay khi F1 hoàn thành đơn hàng.{'\n'}- Hoa hồng cân nhánh (Nhị phân): 9% trên doanh số nhánh yếu, thanh toán khi đạt điều kiện cân cặp.{'\n'}- Hoa hồng đồng chia: Dành cho TĐL và các cấp cao hơn dựa vào tổng doanh số toàn hệ thống.</Text>
+
+                <Text style={styles.policyHeading}>3. Chính sách Rút tiền</Text>
+                <Text style={styles.policyText}>- Hạn mức rút tối thiểu là 100,000 VNĐ.{'\n'}- Lệnh rút tiền sẽ được bộ phận Kế toán duyệt vào ngày 15 và 30 hàng tháng.{'\n'}- Vui lòng cung cấp chính xác thông tin Tài khoản Ngân hàng. Công ty không chịu trách nhiệm nếu bank sai số tài khoản.</Text>
+
+                <Text style={styles.policyHeading}>4. Quyền riêng tư & Lưu trữ Dữ liệu</Text>
+                <Text style={styles.policyText}>- Chúng tôi cam kết không chia sẻ dữ liệu cá nhân của hội viên cho bên thứ 3 phục vụ mục đích quảng cáo.{'\n'}- Mọi lịch sử giao dịch và sơ đồ mạng lưới được lưu trữ trên Server bảo mật chuẩn quốc tế phục vụ đối soát.</Text>
+
+                <View style={{ height: Spacing.xxxl }} />
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
         {/* Wallet summary */}
         <Card style={styles.walletSummary}>
           <Text style={styles.cardTitle}>Tóm tắt tài chính tháng này</Text>
@@ -221,10 +286,16 @@ const ProfileScreen = () => {
           <InfoRow label="Ví Hoa Hồng" value={formatVND(commissionWallet)} />
         </Card>
 
-        {/* Logout */}
-        <Pressable style={styles.logoutBtn} onPress={() => Alert.alert('Đăng xuất', 'Bạn có muốn đăng xuất không?', [{ text: 'Hủy' }, { text: 'Đăng xuất', style: 'destructive', onPress: handleLogout }])}>
-          <Text style={styles.logoutText}>Đăng xuất</Text>
-        </Pressable>
+        {/* Danger Area */}
+        <View style={styles.dangerZone}>
+          <Pressable style={styles.logoutBtn} onPress={() => Alert.alert('Đăng xuất', 'Bạn có muốn đăng xuất không?', [{ text: 'Hủy' }, { text: 'Đăng xuất', style: 'destructive', onPress: handleLogout }])}>
+            <Text style={styles.logoutText}>Đăng xuất</Text>
+          </Pressable>
+          
+          <Pressable style={styles.deleteBtn} onPress={handleDeleteAccount}>
+            <Text style={styles.deleteText}>Yêu cầu đóng / xóa tài khoản</Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -261,11 +332,15 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: FontSize.sm, color: Colors.text.secondary },
   infoValue: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text.primary, maxWidth: '60%', textAlign: 'right' },
   infoAccent: { color: Colors.primaryLight },
-  editBtn: { marginTop: Spacing.md, padding: Spacing.sm, alignItems: 'center', borderWidth: 1.5, borderColor: Colors.border, borderRadius: Radius.md },
-  editBtnText: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '700' },
+  actionRow: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.md },
+  actionBtn: { flex: 1, padding: Spacing.sm, alignItems: 'center', borderWidth: 1.5, borderColor: Colors.border, borderRadius: Radius.md },
+  actionBtnText: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '700' },
   walletSummary: { marginTop: Spacing.md },
-  logoutBtn: { marginTop: Spacing.xl, padding: Spacing.md, alignItems: 'center' },
-  logoutText: { fontSize: FontSize.md, color: Colors.danger, fontWeight: '700' },
+  dangerZone: { marginTop: Spacing.xl, gap: Spacing.md },
+  logoutBtn: { padding: Spacing.md, alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border },
+  logoutText: { fontSize: FontSize.md, color: Colors.text.primary, fontWeight: '700' },
+  deleteBtn: { padding: Spacing.md, alignItems: 'center' },
+  deleteText: { fontSize: FontSize.sm, color: Colors.danger, fontWeight: '600' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: Colors.background, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, padding: Spacing.xl, paddingBottom: 40 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xl },
@@ -275,6 +350,9 @@ const styles = StyleSheet.create({
   input: { backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, fontSize: FontSize.md, color: Colors.text.primary, marginBottom: Spacing.lg, borderWidth: 1, borderColor: Colors.border },
   modalTip: { backgroundColor: 'rgba(52, 152, 219, 0.1)', padding: Spacing.md, borderRadius: Radius.md, marginBottom: Spacing.xl },
   modalTipText: { fontSize: 12, color: Colors.primary, lineHeight: 18, fontWeight: '500' },
+  policyScroll: { flex: 1 },
+  policyHeading: { fontSize: FontSize.md, fontWeight: '800', color: Colors.text.primary, marginTop: Spacing.lg, marginBottom: Spacing.xs },
+  policyText: { fontSize: FontSize.sm, color: Colors.text.secondary, lineHeight: 22 },
 });
 
 export default ProfileScreen;
