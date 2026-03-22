@@ -341,7 +341,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       
       if (error) throw error;
       await get().fetchPlacementRequests();
-    } catch (e) { console.warn('submitAllPlacements failed:', e); }
+    } catch (e: any) { 
+      console.warn('submitAllPlacements failed:', e); 
+      throw e;
+    }
   },
 
   fetchBinaryTree: async () => {

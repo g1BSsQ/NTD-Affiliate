@@ -208,12 +208,14 @@ const NetworkScreen = () => {
   const handleCancelDraft = async (reqId: string, memberId: string) => {
     try {
       await cancelPlacementRequest(reqId);
+      Alert.alert('Thành công', 'Yêu cầu sắp xếp đã được hủy.');
       // If we were drilled down into this draft, go back up
       if (viewRootId === memberId) {
         setViewRootId(profile?.id || '');
       }
-    } catch (e) {
+    } catch (e: any) {
       console.warn('handleCancelDraft failed:', e);
+      Alert.alert('Lỗi', 'Không thể hủy yêu cầu: ' + (e.message || 'Lỗi hệ thống'));
     }
   };
 
