@@ -90,13 +90,10 @@ const RegisterScreen = () => {
       try {
         // Verify if sponsor code exists
         if (sponsorCode.trim().toLowerCase() !== 'admin') {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('sponsor_code', sponsorCode.trim())
-            .single();
+          const { data: isValid, error } = await supabase
+            .rpc('check_sponsor_code_valid', { p_code: sponsorCode.trim() });
 
-          if (error || !data) {
+          if (error || !isValid) {
             Alert.alert('Lỗi Bảo trợ', 'Mã người giới thiệu không tồn tại trong hệ thống.');
             setLoading(false);
             return;
