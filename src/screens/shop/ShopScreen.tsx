@@ -17,23 +17,31 @@ import { Colors } from '../../constants/colors';
 import { FontSize } from '../../constants/typography';
 import { Spacing, Radius } from '../../constants/spacing';
 
+import { useAppStore } from '../../store/useAppStore';
+
 const PACKAGES = [
   { id: '1', label: 'CTV Tiêu dùng', boxes: 1, pricePerBox: 3000000 },
   { id: '2', label: 'CTV Cơ bản', boxes: 2, pricePerBox: 3000000 },
   { id: '5', label: 'CTV Nâng cao', boxes: 5, pricePerBox: 3000000 },
   { id: '8', label: 'CTV Chuyên nghiệp', boxes: 8, pricePerBox: 3000000 },
 ];
+const REWARD_PER_BOX = 50000;
 
 const ShopScreen = () => {
+  const { wallets, profile } = useAppStore();
   const [selected, setSelected] = useState<typeof PACKAGES[0] | null>(null);
   const [step, setStep] = useState<'shop' | 'checkout'>('shop');
+  const [paymentMethod, setPaymentMethod] = useState<'BANK' | 'REWARD'>('BANK');
   const [pickupAtWarehouse, setPickupAtWarehouse] = useState(true);
   const [address, setAddress] = useState('');
   const [receiptUri, setReceiptUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const rewardBalance = wallets.find(w => w.type === 'REWARD')?.balance ?? 0;
+
   const total = selected ? Math.floor(selected.boxes * selected.pricePerBox * 1.08) : 0;
   const vat = selected ? total - selected.boxes * selected.pricePerBox : 0;
+  const estimatedReward = selected ? selected.boxes * REWARD_PER_BOX : 0;
 
   const pickImage = async () => {
     const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8, maxWidth: 1920 });
@@ -41,7 +49,15 @@ const ShopScreen = () => {
   };
 
   const handleOrder = async () => {
-    if (!receiptUri) { Alert.alert('Thiếu biên lai', 'Vui lòng upload ảnh biên lai chuyển khoản.'); return; }
+    if (paymentMethod === 'BANK' && !receiptUri) { 
+      Alert.alert('Thiếu biên lai', 'Vui lòng upload ảnh biên lai chuyển khoản.'); 
+      return; 
+    }
+    if (paymentMethod === 'REWARD' && rewardBalance < total) {
+      Alert.alert('Số dư không đủ', 'Ví điểm thưởng của bạn không đủ để thanh toán đơn hàng này.');
+      return;
+    }
+
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
@@ -71,36 +87,72 @@ const ShopScreen = () => {
               <Text style={styles.totalLabel}>TỔNG THANH TOÁN</Text>
               <CurrencyText amount={total} size="lg" color={Colors.accent} />
             </View>
-          </Card>
-
-          {/* Bank info */}
-          <Card style={styles.bankCard}>
-            <Text style={styles.cardTitle}>🏦 Thông tin chuyển khoản</Text>
-            <Text style={styles.bankRow}>Ngân hàng: <Text style={styles.bankVal}>MB Bank</Text></Text>
-            <Text style={styles.bankRow}>Số TK: <Text style={styles.bankVal}>1234567890</Text></Text>
-            <Text style={styles.bankRow}>Chủ TK: <Text style={styles.bankVal}>COEDU EDUCATION JSC</Text></Text>
-            <Text style={styles.bankRow}>Số tiền: <Text style={[styles.bankVal, styles.bankAmt]}>{formatVND(total)}</Text></Text>
-            <View style={styles.qrMock}>
-              <Text style={styles.qrEmoji}>📱</Text>
-              <Text style={styles.qrNote}>QR Code chuyển khoản nhanh</Text>
+            <View style={styles.rewardNote}>
+              <Text style={styles.rewardNoteText}>🎁 Dự kiến tích lũy: <Text style={styles.rewardVal}>{formatVND(estimatedReward)}</Text></Text>
             </View>
           </Card>
 
-          {/* Receipt upload */}
-          <Card>
-            <Text style={styles.cardTitle}>📸 Upload biên lai</Text>
-            <Pressable style={styles.uploadBox} onPress={pickImage}>
-              {receiptUri ? (
-                <Image source={{ uri: receiptUri }} style={styles.previewImg} resizeMode="cover" />
-              ) : (
-                <View style={styles.uploadPlaceholder}>
-                  <Text style={styles.uploadIcon}>📷</Text>
-                  <Text style={styles.uploadText}>Chọn ảnh biên lai</Text>
-                </View>
-              )}
+          {/* Payment Method Selection */}
+          <Text style={styles.sectionLabel}>Phương thức thanh toán</Text>
+          <View style={styles.methodRow}>
+            <Pressable 
+              style={[styles.methodBtn, paymentMethod === 'BANK' && styles.methodActive]} 
+              onPress={() => setPaymentMethod('BANK')}
+            >
+              <Text style={[styles.methodTitle, paymentMethod === 'BANK' && styles.methodTextActive]}>🏦 Chuyển khoản</Text>
+              <Text style={styles.methodSub}>Xác nhận thủ công</Text>
             </Pressable>
-            {receiptUri && <Pressable onPress={() => setReceiptUri(null)}><Text style={styles.removeText}>✕ Xóa</Text></Pressable>}
-          </Card>
+            <Pressable 
+              style={[styles.methodBtn, paymentMethod === 'REWARD' && styles.methodActive]} 
+              onPress={() => setPaymentMethod('REWARD')}
+            >
+              <Text style={[styles.methodTitle, paymentMethod === 'REWARD' && styles.methodTextActive]}>💰 Ví Điểm Thưởng</Text>
+              <Text style={styles.methodSub}>Dư: {formatVND(rewardBalance)}</Text>
+            </Pressable>
+          </View>
+
+          {/* Bank info */}
+          {paymentMethod === 'BANK' && (
+            <Card style={styles.bankCard}>
+              <Text style={styles.cardTitle}>🏦 Thông tin chuyển khoản</Text>
+              <Text style={styles.bankRow}>Ngân hàng: <Text style={styles.bankVal}>MB Bank</Text></Text>
+              <Text style={styles.bankRow}>Số TK: <Text style={styles.bankVal}>1234567890</Text></Text>
+              <Text style={styles.bankRow}>Chủ TK: <Text style={styles.bankVal}>COEDU EDUCATION JSC</Text></Text>
+              <Text style={styles.bankRow}>Số tiền: <Text style={[styles.bankVal, styles.bankAmt]}>{formatVND(total)}</Text></Text>
+              <View style={styles.qrMock}>
+                <Text style={styles.qrEmoji}>📱</Text>
+                <Text style={styles.qrNote}>QR Code chuyển khoản nhanh</Text>
+              </View>
+            </Card>
+          )}
+
+          {/* Reward Payment Info */}
+          {paymentMethod === 'REWARD' && (
+            <Card style={styles.rewardCard}>
+              <Text style={styles.rewardInfoText}>Hệ thống sẽ khấu trừ trực tiếp <Text style={styles.rewardHighlight}>{formatVND(total)}</Text> từ Ví Điểm Thưởng của bạn.</Text>
+              {rewardBalance < total && (
+                <Text style={styles.insufficientText}>⚠️ Bạn còn thiếu {formatVND(total - rewardBalance)} để thực hiện giao dịch này.</Text>
+              )}
+            </Card>
+          )}
+
+          {/* Receipt upload */}
+          {paymentMethod === 'BANK' && (
+            <Card>
+              <Text style={styles.cardTitle}>📸 Upload biên lai</Text>
+              <Pressable style={styles.uploadBox} onPress={pickImage}>
+                {receiptUri ? (
+                  <Image source={{ uri: receiptUri }} style={styles.previewImg} resizeMode="cover" />
+                ) : (
+                  <View style={styles.uploadPlaceholder}>
+                    <Text style={styles.uploadIcon}>📷</Text>
+                    <Text style={styles.uploadText}>Chọn ảnh biên lai</Text>
+                  </View>
+                )}
+              </Pressable>
+              {receiptUri && <Pressable onPress={() => setReceiptUri(null)}><Text style={styles.removeText}>✕ Xóa</Text></Pressable>}
+            </Card>
+          )}
 
           <Button title="Gửi xác nhận đơn hàng" onPress={handleOrder} loading={loading} variant="accent" fullWidth size="lg" style={{ marginTop: Spacing.md }} />
         </ScrollView>
@@ -126,7 +178,7 @@ const ShopScreen = () => {
                   <View style={styles.pkgLeft}>
                     <Text style={[styles.pkgName, isSelected && styles.pkgNameSelected]}>{pkg.label}</Text>
                     <Text style={styles.pkgBoxes}>{pkg.boxes} hộp CTH</Text>
-                    <Text style={styles.pkgSalesLabel}>Doanh số: {formatVND(pkg.boxes * pkg.pricePerBox)}</Text>
+                    <Text style={styles.rewardBadge}>🎁 +{formatVND(pkg.boxes * REWARD_PER_BOX)} điểm</Text>
                   </View>
                   <View style={styles.pkgRight}>
                     <Text style={styles.pkgPayLabel}>Thanh toán</Text>
@@ -196,6 +248,21 @@ const styles = StyleSheet.create({
   uploadText: { fontSize: FontSize.sm, color: Colors.text.secondary },
   previewImg: { width: '100%', height: 180 },
   removeText: { fontSize: FontSize.sm, color: Colors.danger, fontWeight: '600', marginTop: Spacing.xs, alignSelf: 'flex-end' },
+  rewardBadge: { fontSize: 10, fontWeight: '700', color: Colors.success, marginTop: 4, backgroundColor: 'rgba(39, 174, 96, 0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: Radius.sm, alignSelf: 'flex-start' },
+  rewardNote: { marginTop: Spacing.sm, alignItems: 'flex-end' },
+  rewardNoteText: { fontSize: FontSize.xs, color: Colors.text.secondary },
+  rewardVal: { fontWeight: '700', color: Colors.success },
+  sectionLabel: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.text.tertiary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: Spacing.sm, marginTop: Spacing.md },
+  methodRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
+  methodBtn: { flex: 1, padding: Spacing.md, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.surface },
+  methodActive: { borderColor: Colors.primary, backgroundColor: Colors.surfaceElevated },
+  methodTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text.primary, marginBottom: 2 },
+  methodTextActive: { color: Colors.primary },
+  methodSub: { fontSize: 10, color: Colors.text.tertiary },
+  rewardCard: { padding: Spacing.lg, backgroundColor: Colors.surfaceElevated, borderLeftWidth: 4, borderLeftColor: Colors.accent },
+  rewardInfoText: { fontSize: FontSize.sm, color: Colors.text.primary, lineHeight: 20 },
+  rewardHighlight: { fontWeight: '800', color: Colors.accent },
+  insufficientText: { fontSize: FontSize.xs, color: Colors.danger, marginTop: Spacing.sm, fontWeight: '600' },
 });
 
 export default ShopScreen;

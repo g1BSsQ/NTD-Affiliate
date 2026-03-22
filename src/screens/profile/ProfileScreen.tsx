@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,12 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '../../components/Card';
+import { Button } from '../../components/Button';
 import { CurrencyText, formatVND } from '../../components/CurrencyText';
 import { UserStatusBadge } from '../../components/Badge';
 import { useAuth } from '../../navigation/AppNavigator';
@@ -38,9 +41,22 @@ const ProfileScreen = () => {
   const { logout } = useAuth();
   const { profile, wallets, networkNode, orders, loading, fetchAll } = useAppStore();
 
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [editData, setEditData] = useState({ fullName: '', phone: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  useEffect(() => {
+    if (profile) {
+      setEditData({ 
+        fullName: profile.full_name || '', 
+        phone: profile.phone || '' 
+      });
+    }
+  }, [profile]);
 
   if (loading || !profile) {
     return (
@@ -67,6 +83,20 @@ const ProfileScreen = () => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     logout();
+  };
+
+  const handleSubmitEdit = () => {
+    if (!editData.fullName.trim() || !editData.phone.trim()) {
+      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ thông tin.');
+      return;
+    }
+    setIsSubmitting(true);
+    // Simulate API call to request change
+    setTimeout(() => {
+      setIsSubmitting(false);
+      setIsEditModalVisible(false);
+      Alert.alert('Thành công', 'Yêu cầu thay đổi thông tin của bạn đã được gửi tới Admin. Vui lòng chờ phê duyệt.');
+    }, 1500);
   };
 
   return (
@@ -118,11 +148,60 @@ const ProfileScreen = () => {
           <InfoRow label="Trạng thái" value={profile.status} />
           <Pressable
             style={styles.editBtn}
-            onPress={() => Alert.alert('Chỉnh sửa', 'Yêu cầu chỉnh sửa thông tin sẽ được gửi lên Admin để xét duyệt.')}
+            onPress={() => setIsEditModalVisible(true)}
           >
             <Text style={styles.editBtnText}>Yêu cầu chỉnh sửa thông tin</Text>
           </Pressable>
         </Card>
+
+        {/* Edit Profile Modal */}
+        <Modal
+          visible={isEditModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setIsEditModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Chỉnh sửa thông tin</Text>
+                <Pressable onPress={() => setIsEditModalVisible(false)}>
+                  <Text style={styles.closeBtn}>✕</Text>
+                </Pressable>
+              </View>
+
+              <Text style={styles.inputLabel}>Họ và tên</Text>
+              <TextInput
+                style={styles.input}
+                value={editData.fullName}
+                onChangeText={(text) => setEditData({ ...editData, fullName: text })}
+                placeholder="Nhập họ tên mới"
+              />
+
+              <Text style={styles.inputLabel}>Số điện thoại</Text>
+              <TextInput
+                style={styles.input}
+                value={editData.phone}
+                onChangeText={(text) => setEditData({ ...editData, phone: text })}
+                placeholder="Nhập số điện thoại mới"
+                keyboardType="phone-pad"
+              />
+
+              <View style={styles.modalTip}>
+                <Text style={styles.modalTipText}>💡 Lưu ý: Thông tin mới sẽ chỉ có hiệu lực sau khi Admin phê duyệt.</Text>
+              </View>
+
+              <Button
+                title="Gửi yêu cầu phê duyệt"
+                onPress={handleSubmitEdit}
+                loading={isSubmitting}
+                variant="primary"
+                fullWidth
+                style={{ marginTop: Spacing.md }}
+              />
+            </View>
+          </View>
+        </Modal>
 
         {/* Wallet summary */}
         <Card style={styles.walletSummary}>
@@ -186,6 +265,15 @@ const styles = StyleSheet.create({
   walletSummary: { marginTop: Spacing.md },
   logoutBtn: { marginTop: Spacing.xl, padding: Spacing.md, alignItems: 'center' },
   logoutText: { fontSize: FontSize.md, color: Colors.danger, fontWeight: '700' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: Colors.background, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, padding: Spacing.xl, paddingBottom: 40 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xl },
+  modalTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text.primary },
+  closeBtn: { fontSize: 20, color: Colors.text.tertiary, padding: 4 },
+  inputLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.text.secondary, marginBottom: Spacing.xs, textTransform: 'uppercase' },
+  input: { backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, fontSize: FontSize.md, color: Colors.text.primary, marginBottom: Spacing.lg, borderWidth: 1, borderColor: Colors.border },
+  modalTip: { backgroundColor: 'rgba(52, 152, 219, 0.1)', padding: Spacing.md, borderRadius: Radius.md, marginBottom: Spacing.xl },
+  modalTipText: { fontSize: 12, color: Colors.primary, lineHeight: 18, fontWeight: '500' },
 });
 
 export default ProfileScreen;

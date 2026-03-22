@@ -19,12 +19,14 @@ import { UserRankLabel } from '../../constants/enums';
 import { useAppStore } from '../../store/useAppStore';
 
 const NetworkScreen = () => {
-  const { profile, networkNode, loading, fetchProfile, fetchNetworkNode } = useAppStore();
+  const { profile, networkNode, subordinates, loading, fetchProfile, fetchNetworkNode, fetchSubordinates } = useAppStore();
 
   useEffect(() => {
     fetchProfile();
     fetchNetworkNode();
-  }, [fetchProfile, fetchNetworkNode]);
+    fetchSubordinates();
+  }, [fetchProfile, fetchNetworkNode, fetchSubordinates]);
+
 
   if (loading || !networkNode || !profile) {
     return (
@@ -98,10 +100,38 @@ const NetworkScreen = () => {
           style={styles.rearrangeBtn}
           onPress={() => Alert.alert('Yêu cầu đã gửi', 'Admin sẽ xem xét và phản hồi yêu cầu của bạn.')}
         />
+
+        {/* Subordinates (F1) list */}
+        <View style={styles.subListHeader}>
+          <Text style={styles.treeTitle}>Thành viên trực thuộc (F1)</Text>
+          <Text style={styles.subCount}>{subordinates.length} người</Text>
+        </View>
+
+        {subordinates.length > 0 ? (
+          subordinates.map((sub) => (
+            <Card key={sub.user_id} style={styles.subCard}>
+              <View style={styles.subRow}>
+                <View style={[styles.posBadge, sub.position === 'LEFT' ? styles.posLeft : styles.posRight]}>
+                  <Text style={styles.posText}>{sub.position === 'LEFT' ? 'T' : 'P'}</Text>
+                </View>
+                <View style={styles.subInfo}>
+                  <Text style={styles.subName}>{sub.full_name}</Text>
+                  <Text style={styles.subSales}>Doanh số: {formatVND(sub.total_sales)}</Text>
+                </View>
+                <UserStatusBadge status={sub.status as any} />
+              </View>
+            </Card>
+          ))
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>Chưa có thành viên trực thuộc nào.</Text>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 };
+
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
@@ -131,7 +161,21 @@ const styles = StyleSheet.create({
   myNodeName: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text.primary },
   myNodeRank: { fontSize: FontSize.xs, color: Colors.primaryLight, fontWeight: '600' },
   myNodeSales: { fontSize: FontSize.xs, color: Colors.text.secondary, marginTop: 2 },
-  rearrangeBtn: { marginTop: Spacing.xl },
+  rearrangeBtn: { marginTop: Spacing.xl, marginBottom: Spacing.xl },
+  subListHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
+  subCount: { fontSize: FontSize.xs, color: Colors.text.tertiary, fontWeight: '600' },
+  subCard: { marginBottom: Spacing.xs, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
+  subRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  posBadge: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  posLeft: { backgroundColor: 'rgba(52, 152, 219, 0.1)' },
+  posRight: { backgroundColor: 'rgba(231, 76, 60, 0.1)' },
+  posText: { fontSize: 10, fontWeight: '900', color: Colors.text.secondary },
+  subInfo: { flex: 1 },
+  subName: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text.primary },
+  subSales: { fontSize: 10, color: Colors.text.secondary, marginTop: 2 },
+  emptyState: { padding: Spacing.xl, alignItems: 'center' },
+  emptyText: { fontSize: FontSize.sm, color: Colors.text.tertiary, fontStyle: 'italic' },
 });
+
 
 export default NetworkScreen;

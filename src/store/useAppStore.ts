@@ -52,6 +52,15 @@ export interface NetworkNode {
   rank: string;
 }
 
+export interface Subordinate {
+  user_id: string;
+  full_name: string;
+  position: string;
+  status: string;
+  total_sales: number;
+}
+
+
 // ---- Store ----
 interface AppState {
   // Data
@@ -60,7 +69,9 @@ interface AppState {
   orders: Order[];
   transactions: Transaction[];
   networkNode: NetworkNode | null;
+  subordinates: Subordinate[];
   loading: boolean;
+
 
   // Actions
   fetchProfile: () => Promise<void>;
@@ -68,7 +79,9 @@ interface AppState {
   fetchOrders: () => Promise<void>;
   fetchTransactions: () => Promise<void>;
   fetchNetworkNode: () => Promise<void>;
+  fetchSubordinates: () => Promise<void>;
   fetchAll: () => Promise<void>;
+
   reset: () => void;
 }
 
@@ -78,7 +91,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   orders: [],
   transactions: [],
   networkNode: null,
+  subordinates: [],
   loading: false,
+
 
   fetchProfile: async () => {
     try {
@@ -149,6 +164,35 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch (e) { console.warn('fetchNetworkNode failed:', e); }
   },
 
+  fetchSubordinates: async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('network_nodes')
+        .select(`
+          user_id,
+          position,
+          total_sales,
+          profiles(full_name, status)
+        `)
+        .eq('sponsor_id', user.id);
+      
+      if (error) console.warn('fetchSubordinates error:', error.message);
+      if (data) {
+        const mapped = data.map((item: any) => ({
+          user_id: item.user_id,
+          position: item.position,
+          total_sales: item.total_sales,
+          full_name: (item.profiles as any)?.full_name || 'Hội viên mới',
+          status: (item.profiles as any)?.status || 'PENDING'
+        }));
+        set({ subordinates: mapped });
+      }
+    } catch (e) { console.warn('fetchSubordinates failed:', e); }
+  },
+
+
   fetchAll: async () => {
     set({ loading: true });
     const store = get();
@@ -158,7 +202,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       store.fetchOrders(),
       store.fetchTransactions(),
       store.fetchNetworkNode(),
+      store.fetchSubordinates(),
     ]);
+
     set({ loading: false });
   },
 
@@ -168,6 +214,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     orders: [],
     transactions: [],
     networkNode: null,
+    subordinates: [],
     loading: false,
   }),
+
 }));
