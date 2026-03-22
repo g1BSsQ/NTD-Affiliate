@@ -213,9 +213,6 @@ const NetworkScreen = () => {
                 <Text style={styles.draftBadgeText}>Chờ duyệt</Text>
               </View>
             )}
-            <View style={[styles.nodeAvatar, node.isDraft && styles.draftAvatar]}>
-              <Text style={styles.nodeAvatarText}>{node.full_name.charAt(0)}</Text>
-            </View>
             <Text style={styles.nodeName} numberOfLines={1}>{node.full_name}</Text>
             
             {!node.isDraft && (
@@ -424,9 +421,6 @@ const styles = StyleSheet.create({
   draftBadge: { position: 'absolute', top: -10, backgroundColor: Colors.warning, paddingHorizontal: 4, borderRadius: 4, zIndex: 10 },
   draftBadgeText: { fontSize: 7, fontWeight: '800', color: '#fff' },
 
-  nodeAvatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
-  draftAvatar: { backgroundColor: Colors.warning },
-  nodeAvatarText: { color: '#fff', fontWeight: '800', fontSize: 10 },
   nodeName: { fontSize: 8, fontWeight: '700', color: Colors.text.primary, textAlign: 'center' },
   nodeSales: { fontSize: 7, fontWeight: '600', color: Colors.primary, marginTop: 1 },
   nodePos: { fontSize: 6, color: Colors.text.tertiary, marginTop: 1 },
