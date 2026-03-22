@@ -151,12 +151,27 @@ const ShopScreen = () => {
                 <Text style={styles.bankText}>Chủ TK: COEDU EDUCATION JSC</Text>
                 <Text style={styles.bankNote}>* Nội dung: MDH {profile?.sponsor_code} {selected.boxes}H</Text>
 
+                <View style={styles.qrMock}>
+                  <Text style={styles.qrEmoji}>📱</Text>
+                  <Text style={styles.qrNote}>QR Code chuyển khoản nhanh</Text>
+                </View>
+
                 <Pressable style={styles.uploadBtn} onPress={pickImage}>
                   <Text style={styles.uploadBtnText}>
-                    {receipt ? '✅ Đã tải biên lai' : '📤 Tải ảnh biên lai'}
+                    {receipt ? '✅ Đã thay đổi biên lai' : '📤 Tải ảnh biên lai'}
                   </Text>
                 </Pressable>
-                {receipt && <Pressable onPress={() => setReceipt(null)}><Text style={styles.removeText}>✕ Xóa</Text></Pressable>}
+
+                {receipt && (
+                  <View style={{ marginTop: Spacing.md }}>
+                    <View style={styles.uploadBox}>
+                      <Image source={{ uri: receipt }} style={styles.previewImg} resizeMode="cover" />
+                    </View>
+                    <Pressable onPress={() => setReceipt(null)}>
+                      <Text style={styles.removeText}>✕ Xóa ảnh này</Text>
+                    </Pressable>
+                  </View>
+                )}
               </View>
             ) : (
               <View style={styles.fullPointNote}>
