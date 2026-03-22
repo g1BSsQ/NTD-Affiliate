@@ -29,7 +29,7 @@ const PACKAGES = [
 const REWARD_PER_BOX = 50000;
 
 const ShopScreen = () => {
-  const { profile, wallets, fetchAll } = useAppStore();
+  const { profile, wallets, fetchWallets, fetchOrders, fetchTransactions, createOrder, fetchAll } = useAppStore();
   const [refreshing, setRefreshing] = React.useState(false);
 
   const onRefresh = React.useCallback(async () => {
@@ -74,14 +74,18 @@ const ShopScreen = () => {
     }
 
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await createOrder(selected.id, selected.boxes, total, receipt || '', pointsToUse);
       Alert.alert('Đã gửi!', 'Đơn hàng đang chờ Admin xác nhận thanh toán.');
       setStep('shop');
       setSelected(null);
       setReceipt(null);
       setUsePoints(false);
-    }, 1200);
+    } catch (e) {
+      Alert.alert('Lỗi', 'Không thể tạo đơn hàng. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (step === 'checkout' && selected) {
